@@ -1,32 +1,24 @@
 import cv2
 import numpy as np
+# requests는 외부 API 호출에 필요할 수 있으므로 유지
 import requests
 import json
 from datetime import datetime, timedelta
 from ml.train import predict_item_category_and_expiry
+# PaddleOCR 임포트
+# from paddleocr import PaddleOCR # app.py에서 ocr 인스턴스를 전달받으므로 이 파일에서 직접 임포트 및 초기화하지 않음
 
-def extract_text_from_image(image_path, clova_api_url, clova_secret_key):
+# 기존 extract_text_from_image 함수를 PaddleOCR을 사용하도록 변경
+def extract_text_from_image(image_path, ocr_instance): # ocr_instance 인자 추가
     """
-    Extract text from image using Naver Clova OCR API
+    Extract text from image using PaddleOCR instance
     """
-    with open(image_path, 'rb') as f:
-        img_data = f.read()
-    
-    headers = {
-        'Ocp-Apim-Subscription-Key': clova_secret_key,
-        'Content-Type': 'application/octet-stream'
-    }
-    
-    response = requests.post(clova_api_url, headers=headers, data=img_data)
-    response_json = response.json()
-    
-    # OCR 응답에서 텍스트 추출
-    extracted_texts = []
-    for field in response_json.get('images', [{}])[0].get('fields', []):
-        text_value = field.get('inferText', '')
-        if text_value:
-            extracted_texts.append(text_value)
-    
+    # PaddleOCR은 이미지 경로를 직접 받음
+    result = ocr_instance.ocr(image_path, cls=True)
+
+    # 텍스트 추출 (log.md 예시 참고)
+    extracted_texts = [line[1][0] for res in result for line in res]
+
     return extracted_texts
 
 def parse_receipt_items(ocr_texts):
@@ -35,20 +27,17 @@ def parse_receipt_items(ocr_texts):
     """
     items = []
     
-    # 간단한 접근: 항목처럼 보이는 줄을 식별합니다 (숫자와 텍스트 포함)
-    for i, text in enumerate(ocr_texts):
+    # PaddleOCR에서 추출된 텍스트는 이미 리스트 형태이므로,
+    # 각 텍스트가 항목으로 유효한지 확인하고 추가
+    for text in ocr_texts:
         # 항목을 나타내는 패턴을 찾습니다 (문자와 숫자 포함)
-        if any(c.isalpha() for c in text) and any(c.isdigit() for c in text):
-            # 항목 이름 추출 (가격 및 수량 지표 제거)
-            # 단순화된 접근 방식 - 실제 구현은 더 복잡할 수 있습니다
-            item_name = text.strip()
-            
-            # 비어있지 않으면 항목 목록에 추가
-            if item_name:
-                items.append(item_name)
+        # 이 로직은 PaddleOCR이 이미 라인 단위로 추출했으므로,
+        # 각 라인이 실제 항목인지 판단하는 로직으로 변경될 수 있습니다.
+        # 일단은 비어있지 않은 모든 라인을 항목으로 간주
+        item_name = text.strip()
+        if item_name:
+            items.append(item_name)
     
-    # 실제 제품과 헤더/푸터를 식별하기 위해 추가 처리가 필요할 수 있습니다
-    # 이는 데이터셋의 영수증 형식에 따라 달라집니다
     return items
 
 def calculate_expiry_date(predicted_expiry_days):
@@ -61,17 +50,18 @@ def calculate_expiry_date(predicted_expiry_days):
     
     return expiry_date
 
-def process_receipt_image(image_path, model_path, clova_api_url, clova_secret_key):
+# process_receipt_image 함수 수정
+def process_receipt_image(image_path, model_path, ocr_instance): # ocr_instance 인자 추가
     """
     영수증 이미지를 처리하는 주요 함수:
-    1. OCR을 사용하여 텍스트 추출
+    1. OCR을 사용하여 텍스트 추출 (PaddleOCR 사용)
     2. 개별 항목 파싱
     3. AI 모델을 사용하여 각 항목 분류
     4. 유통기한 계산
     5. 데이터베이스 삽입을 위한 포맷
     """
-    # 1단계: OCR을 사용하여 이미지에서 텍스트 추출
-    ocr_texts = extract_text_from_image(image_path, clova_api_url, clova_secret_key)
+    # 1단계: OCR을 사용하여 이미지에서 텍스트 추출 (PaddleOCR 사용)
+    ocr_texts = extract_text_from_image(image_path, ocr_instance) # ocr_instance 전달
     
     # 2단계: OCR 텍스트에서 개별 항목 파싱
     receipt_items = parse_receipt_items(ocr_texts)
@@ -97,22 +87,3 @@ def process_receipt_image(image_path, model_path, clova_api_url, clova_secret_ke
         processed_items.append(db_item)
     
     return processed_items
-
-def get_clova_api_details():
-    """
-    환경 변수에서 네이버 Clova OCR API 세부 정보를 가져옵니다
-    """
-    import os
-    api_url = os.getenv('CLOVA_API_URL')
-    secret_key = os.getenv('CLOVA_SECRET_KEY')
-    
-    if not api_url or not secret_key:
-        raise ValueError("CLOVA_API_URL 및 CLOVA_SECRET_KEY 환경 변수를 설정해야 합니다")
-    
-    return api_url, secret_key
-
-# 예제 사용법
-if __name__ == "__main__":
-    # 로직 사용 방법 예시
-    # Flask API 엔드포인트에 통합됩니다
-    print("유통기한 로직 모듈 로드됨")
