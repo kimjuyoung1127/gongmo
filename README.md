@@ -1,7 +1,33 @@
+# 🥫 AI 식료품 관리 앱 (AI Grocery Manager)
 
-# 📷 Scanner Project
+**영수증과 상품 바코드를 스캔하여 식료품을 등록하고, 유통기한을 스마트하게 관리해주는 모바일 애플리케이션입니다.**
 
-이 프로젝트는 **AI + IoT 솔루션**으로, **ESP32-CAM**을 활용해 영수증을 스캔하고, **AI 모델**을 통해 품목을 분류하고 유통기한을 예측한 뒤, **React 웹 애플리케이션**에서 정보를 실시간으로 표시합니다.
+이 프로젝트는 복잡한 하드웨어 없이, 누구나 가진 스마트폰을 활용하여 식료품 재고를 관리하고 음식물 쓰레기를 줄이는 것을 목표로 합니다.
+
+---
+
+## ✨ 주요 기능
+
+- **하이브리드 입력 방식**
+    - **AI 영수증 스캔:** 영수증을 사진으로 찍으면 AI가 품목을 자동으로 분석하고 목록에 추가합니다.
+    - **정확한 바코드 스캔:** 상품 바코드를 스캔하여 100% 정확한 상품 정보를 즉시 등록합니다.
+- **자동 유통기한 계산**
+    - AI가 품목의 카테고리를 인식하고, 내장된 규칙에 따라 최적의 유통기한을 자동으로 계산해줍니다.
+- **실시간 재고 관리**
+    - 등록된 식료품 목록을 실시간으로 확인하고, 유통기한이 임박한 순서(D-Day)로 정렬하여 보여줍니다.
+- **클라우드 동기화**
+    - 모든 데이터는 클라우드(Supabase)에 저장되어 여러 기기에서 동기화됩니다.
+
+---
+
+## 🏛️ 아키텍처
+
+이 프로젝트는 다음과 같은 모던 앱 아키텍처로 구성됩니다.
+
+```
+[📱 프론트엔드: 스마트폰 앱]  <-- (REST API) -->  [⚙️ 백엔드: Python/Flask]  <-- (SDK) -->  [☁️ DB: Supabase]
+ (Flutter / React Native)                         (AI 모델, OCR, 바코드 API)                 (PostgreSQL + Realtime)
+```
 
 ---
 
@@ -9,62 +35,22 @@
 
 ```
 scanner-project/
-├── backend/
-│   ├── app.py                 # Flask 백엔드 애플리케이션
-│   ├── train.py               # AI 모델 학습 스크립트
-│   ├── expiry_logic.py        # 유통기한 계산 로직
-│   ├── requirements.txt       # Python 의존성 목록
-│   ├── schema.sql             # Supabase 데이터베이스 스키마
-│   ├── food_dataset_v2.csv    # 학습용 식품 데이터셋
-│   ├── model.pkl              # 학습된 AI 모델
-│   ├── test_api.py            # API 테스트 스크립트
-│   ├── .env                   # 환경 변수 파일
-│   └── test_images/           # API 검증용 테스트 이미지
-├── frontend/
-│   └── (React 애플리케이션 파일이 여기에 위치)
-├── hardware/
-│   └── esp32cam/              # ESP32-CAM 펌웨어
-├── docs/                      # 문서 파일
-└── README.md                  # 현재 문서
+├── backend/              # ✅ AI 모델, 비즈니스 로직, API 서버 (Python, Flask)
+├── docs/                 # ✅ 프로젝트 계획, 데이터 모델, 회의록 등 문서
+├── frontend/             # ⚠️ (보관됨) 구 버전의 React 웹 프론트엔드
+└── README.md             # 👈 현재 문서
+
+(향후 앱 소스코드를 위한 /app 디렉토리가 추가될 수 있습니다.)
 ```
-
----
-
-## ✨ 주요 기능
-
-- **AI 품목 분류**: TF-IDF와 Naive Bayes를 활용해 영수증에서 품목 분류
-- **유통기한 예측**: 품목 카테고리 및 규칙 기반 유통기한 계산
-- **OCR 처리**: 네이버 Clova OCR을 통해 영수증 이미지에서 텍스트 추출
-- **실시간 정보 표시**: 웹 인터페이스에서 유통기한 정보 실시간 표시
-- **IoT 연동**: ESP32-CAM이 이미지를 캡처하고 백엔드로 전송
 
 ---
 
 ## 🚀 시작하기
 
-1. 백엔드 설정 → `backend/README.md` 참고
-2. 프론트엔드 설정 → `frontend/README.md` 참고
-3. ESP32-CAM 펌웨어 구성 및 업로드 → `hardware/README.md` 참고
-4. 시스템 전체 실행 → `docs/weekplan.md` 참고
+각 파트별 상세한 설정 및 실행 방법은 해당 디렉토리의 `README.md` 파일을 참고하세요.
+
+1.  **백엔드 실행:** `backend/README.md` 참고
+2.  **데이터 모델 확인:** `docs/data.md` 참고
+3.  **프로젝트 계획 확인:** `docs/log.md` 참고
 
 ---
-
-## 🔐 환경 변수 설정
-
-`backend` 디렉토리에 `.env` 파일을 생성하고 다음 내용을 입력하세요:
-
-```env
-# Supabase 설정
-SUPABASE_URL=your_supabase_url_here
-SUPABASE_ANON_KEY=your_supabase_anon_key_here
-SUPABASE_SERVICE_KEY=your_supabase_service_key_here
-
-# 네이버 Clova OCR 설정
-CLOVA_API_URL=your_clova_api_url_here
-CLOVA_SECRET_KEY=your_clova_secret_key_here
-
-# Flask 앱 설정
-MODEL_PATH=model.pkl
-```
-
-
