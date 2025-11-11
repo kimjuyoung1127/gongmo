@@ -1,0 +1,115 @@
+item_name,category,expiry_days
+"Organic Bananas",fruit,7
+"Fresh Strawberries",berry_fruit,3
+"Avocado",tropical_fruit,5
+"Organic Apples",fruit,30
+"Baby Spinach",leafy_veg,3
+"Organic Carrots",root_veg,21
+"Cucumber",fruit_veg,5
+"Cherry Tomatoes",fruit_veg,5
+"Organic Broccoli",stem_veg,3
+"Whole Milk",dairy_fresh,7
+"Organic Eggs",eggs,30
+"Cheddar Cheese",cheese_hard,30
+"Organic Yogurt",dairy_fresh,7
+"Butter",dairy_longlife,30
+"Fresh Salmon",fish,2
+"Ground Beef",meat_fresh,3
+"Chicken Breast",meat_fresh,3
+"Organic Tofu",pantry_item,5
+"White Bread",bread,5
+"Brown Rice",grain,180
+"Oatmeal",grain,180
+"Almond Milk",dairy_fresh,7
+"Organic Lettuce",leafy_veg,3
+"Sweet Potato",root_veg,21
+"Red Onion",root_veg,21
+"Garlic",root_veg,21
+"Ginger",root_veg,21
+"Lemon",citrus_fruit,14
+"Lime",citrus_fruit,14
+"Orange",citrus_fruit,14
+"Potato",root_veg,21
+"Organic Peanuts",grain,180
+"Almonds",grain,180
+"Banana",fruit,7
+"Organic Blueberries",berry_fruit,3
+"Raspberries",berry_fruit,3
+"Blackberries",berry_fruit,3
+"Organic Peaches",tropical_fruit,5
+"Plums",tropical_fruit,5
+"Grapes",fruit,7
+"Pineapple",tropical_fruit,5
+"Mango",tropical_fruit,5
+"Watermelon",fruit,7
+"Cantaloupe",fruit,7
+"Organic Cauliflower",stem_veg,3
+"Brussels Sprouts",stem_veg,3
+"Organic Asparagus",stem_veg,3
+"Zucchini",fruit_veg,5
+"Yellow Squash",fruit_veg,5
+"Green Beans",stem_veg,3
+"Peas",stem_veg,3
+"Sweet Corn",fruit_veg,5
+"Organic Mushrooms",mushroom,5
+"Red Bell Pepper",fruit_veg,5
+"Green Bell Pepper",fruit_veg,5
+"Jalapeno Peppers",fruit_veg,5
+"Banana Peppers",fruit_veg,5
+"Celery",stem_veg,3
+"Green Onions",stem_veg,3
+"Cilantro",leafy_veg,3
+"Parsley",leafy_veg,3
+"Basil",leafy_veg,3
+"Organic Roma Tomatoes",fruit_veg,5
+"Beefsteak Tomatoes",fruit_veg,5
+"Organic Basil",leafy_veg,3
+"Organic Parsley",leafy_veg,3
+"Organic Cilantro",leafy_veg,3
+"Ham",processed_meat,14
+"Sausage",processed_meat,14
+"Bacon",processed_meat,14
+"Shrimp",shellfish,2
+"Crab",cephalopod,2
+"Oysters",shellfish,2
+"Clams",shellfish,2
+"Scallops",shellfish,2
+"Seaweed",seaweed,3
+"Dried Kelp",seaweed_dried,365
+"Dried Laver",seaweed_dried,365
+"Frozen Dumplings",frozen_food,365
+"Frozen Pizza",frozen_food,365
+"Frozen Chicken",frozen_food,365
+"Instant Ramen",noodle_dry,180
+"Pasta",noodle_dry,180
+"Fresh Udon",noodle_fresh,7
+"Refrigerated Noodles",noodle_fresh,7
+"Baguette",bread,5
+"Croissant",bakery_creamy,2
+"Bagel",bread,5
+"Orange Juice",beverage,7
+"Tea",beverage,7
+"Soda",beverage,7
+"UHT Milk Drink",beverage_longlife,90
+"Canned Beverage",beverage_longlife,90
+"Cookies",snack,90
+"Crackers",snack,90
+"Chips",snack,90
+"Candy",snack,90
+"Rice",grain,180
+"Barley",grain,180
+"Corn",grain,180
+"Oats",grain,180
+"Ketchup",sauce_condiment,180
+"Soy Sauce",sauce_condiment,180
+"Vinegar",sauce_condiment,180
+"Kimchi",kimchi_fermented,30
+"Pickles",kimchi_fermented,30
+"Canned Tuna",pantry_item,365
+"Dried Anchovy",pantry_item,365
+"Instant Soup",pantry_item,365
+"Ready Meals",hmr_refrigerated,5
+"Side Dishes",hmr_refrigerated,5
+"Marinated Meat",hmr_refrigerated,5
+"Frozen Meal Kits",hmr_frozen,180
+"Frozen Fried Rice",hmr_frozen,180
