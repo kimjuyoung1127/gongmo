@@ -1,3 +1,7 @@
+> 💡 **전략 변경 안내 (v2.0 - AI App)**
+> 이 데이터 모델은 기존 하드웨어 스캐너 프로젝트에서 발전하여, **'AI(영수증 OCR) + 바코드 스캔' 기능을 모두 갖춘 하이브리드 스마트폰 앱**을 지원하도록 설계되었습니다. 아래의 DB 스키마와 규칙은 새로운 앱 아키텍처의 핵심 백엔드 자산으로 그대로 재사용됩니다.
+
+---
 
 # 🗂️ **① Category Master (표준 카테고리 테이블)**
 
@@ -110,9 +114,12 @@
 
 ---
 
-# 🧠 **Supabase 스키마 예시**
+# 🧠 **Supabase 스키마 제안 (v2.0)**
+
+바코드 스캔 기능 추가에 따라, `inventory` 테이블에 `barcode` 컬럼을 추가하는 것을 권장합니다.
 
 ```sql
+-- 기존 테이블 (변경 없음)
 CREATE TABLE categories (
   id BIGSERIAL PRIMARY KEY,
   category_code TEXT UNIQUE NOT NULL,
@@ -127,6 +134,35 @@ CREATE TABLE expiry_rules (
   pattern TEXT NOT NULL,
   override_days INT NOT NULL,
   notes TEXT
+);
+
+-- 영수증 및 품목 테이블 (변경 없음)
+CREATE TABLE receipts (
+    id SERIAL PRIMARY KEY,
+    image_url TEXT,
+    uploaded_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE receipt_items (
+    id SERIAL PRIMARY KEY,
+    receipt_id INTEGER REFERENCES receipts(id),
+    name TEXT NOT NULL,
+    category_id INTEGER REFERENCES categories(id),
+    expiry_date DATE,
+    added_to_inventory BOOLEAN DEFAULT FALSE
+);
+
+
+-- **핵심: 재고 관리 테이블 (바코드 컬럼 추가)**
+CREATE TABLE inventory (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    category_id INTEGER REFERENCES categories(id),
+    expiry_date DATE NOT NULL,
+    quantity INTEGER DEFAULT 1,
+    -- 바코드(GTIN) 값. 바코드 스캔으로 등록 시 이 컬럼에 저장
+    barcode TEXT, 
+    added_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
@@ -146,17 +182,3 @@ def apply_expiry_rules(item_name: str, base_expiry: int, rules: list[dict]) -> i
             return rule["override_days"]
     return base_expiry
 ```
-
----
-
-# ✅ **정리 요약**
-
-| 항목          | 설명                                                              |
-| ----------- | --------------------------------------------------------------- |
-| **언어 표준화**  | 모든 `category_code`, `match_type`, `pattern`을 영어/영문 혼합 regex로 관리 |
-| **한글 병기**   | `category_name_kr` 컬럼으로 UI용 한글 표시 가능                            |
-| **유통기한 계산** | 기본값(`default_expiry_days`) + 예외 규칙(`expiry_rules`)              |
-| **AI 학습용**  | 모델 라벨은 영어 코드 사용 (e.g., `meat_fresh`, `dairy_fresh`)             |
-| **데이터 확장성** | 음식 추가 시 `categories`에는 기본값만, `expiry_rules`로 품목 세부 보정           |
-
--

@@ -1,55 +1,46 @@
-네, 좋습니다. 제공해주신 4주 로드맵을 기반으로, 매주 실행하고 완료해야 할 작업들을 명확하게 추적할 수 있는 **'4주 실행 체크리스트'**로 수정하여 정리해 드립니다.
+### 🚀 4주 실행 체크리스트 (v3.0 - AI App)
+
+이 플랜은 '제출물 7종'을 모두 포함하며 하드웨어 리스크가 없는 스마트폰 앱 개발 계획입니다.
 
 ---
 
-### 🚀 4주 실행 체크리스트 (v2.0)
+### 🗓️ Week 1: 백엔드/AI v2.0 완성 (기존과 동일)
 
-### 🎯 Week 1: AI의 '뇌' - 학습 데이터셋 구축 및 기본 설정
-
-* `[ ]` **데이터 수집:** 실제 마트/편의점 영수증 10~15장 확보
-* `[ ]` **데이터셋 완성:** `food_dataset_v2.csv` (X, X_clean, Y_category, Y_expiry_days) 100~200건 수동 라벨링
-* `[ ]` **DB 설계:** Supabase `products` 테이블 스키마 (`schema.sql`) 작성
-* `[ ]` **DB 설정:** Supabase 프로젝트 생성, 테이블 적용, RLS + Realtime 활성화
-* `[ ]` **프로젝트 구조:** Github Monorepo 생성 (`/hardware`, `/backend`, `/frontend`)
-* `[ ]` **백엔드 초기화:** `/backend` 폴더에 Flask 기본 환경 설정 (`app.py`, `requirements.txt`)
-* `[ ]` **(제출물 1) `food_dataset_v2.csv` 파일**
-* `[ ]` **(제출물 2) Github 링크 (내부에 `schema.sql` 포함)**
+*   `[✅]` **데이터셋 완성:** `categories.csv`, `expiry_rules.csv` 완성
+*   `[✅]` **DB 설계 및 적용:** Supabase DB 스키마 (v2.0 Full) 적용 및 `seed.py`로 데이터 삽입
+*   `[✅]` **핵심 로직 코드 완성:** `clean_text.py` (정제), `expiry_logic.py` (규칙) 완성
+*   `[✅]` **(제출물) `[7]학습데이터셋(CSV)`, `[5]Github(DB스키마, 로직코드)`**
 
 ---
 
-### 🤖 Week 2: '자체 AI 모델' 개발 및 백엔드 연동
+### 🤖 Week 2: AI 모델 학습 및 백엔드 API 완성
 
-* `[ ]` **AI 모델 학습:** `train.py` 스크립트 작성 (Scikit-learn, Tfidf, Naive Bayes/SVM)
-* `[ ]` **AI 모델 생성:** `train.py` 실행하여 `model.pkl` 파일 생성
-* `[ ]` **백엔드 API 개발:** Flask `/upload` API 엔드포인트 구현
-* `[ ]` **핵심 로직 구현:** API 내 (이미지 수신 → OCR 호출 → `model.pkl` 예측 → 유통기한 계산 → Supabase INSERT) 흐름 완성
-* `[ ]` **로컬 테스트:** Postman으로 이미지 전송 → Supabase DB에 데이터가 쌓이는지 확인
-* `[ ]` **(제출물 3) `train.py` 스크립트**
-* `[ ]` **(제출물 4) `model.pkl` 파일**
-* `[ ]` **(제출물 5) Flask `predict()` 함수 및 DB INSERT 코드**
+*   `[✅]` **AI 모델 생성:** `food_dataset_v2.csv` 라벨링 완료 → `train.py` 실행 → **`model.pkl` 생성**
+*   `[✅]` **API 1: `/upload_receipt` (Flask):** (기존과 동일) 영수증 이미지를 받아 Clova OCR → `model.pkl` → `expiry_logic.py` → `receipt_items` DB 저장
+*   `[ ]` **API 2: `/lookup_barcode` (Flask):** (신규) 바코드(GTIN) 값을 받아서, 외부 API(식품안전나라 등)를 호출해 '정확한 제품명'과 '카테고리'를 반환하는 API 구현
+*   `[ ]` **백엔드 배포:** 완성된 Flask 앱을 Render 클라우드에 배포
+*   `[ ]` **(제출물) `[6]AI모델(model.pkl)`, `[6]AI코드(train.py, Flask API)`, `[2]웹서비스 URL`(백엔드)
 
 ---
 
-### 🔗 Week 3: 하드웨어 + 웹 프론트엔드 통합
+### 📱 Week 3: 프론트엔드 앱(Flutter/RN) 구현
 
-* `[ ]` **백엔드 배포:** Flask 앱 (AI 모델 포함) Render 클라우드 배포
-* `[ ]` **API 주소 확보:** `https://...onrender.com` 공개 API 주소 확보
-* `[ ]` **하드웨어 개발:** ESP32-CAM (버튼 클릭 → 사진 촬영 → Render API로 이미지 POST 전송) 펌웨어 작성
-* `[ ]` **프론트엔드 개발:** React 웹 (Supabase Realtime 연동, D-day 계산 및 목록 표시)
-* `[ ]` **프론트엔드 배포:** React 웹 Vercel 배포
-* `[ ]` **E2E 테스트:** ESP32 버튼 클릭 → Vercel 웹 실시간 업데이트 확인
-* `[ ]` **(제출물 6) Vercel 웹 URL**
-* `[ ]` **(제출물 7) Render API URL**
+*   `[ ]` **프로젝트 생성:** Flutter 또는 React Native(Expo) 프로젝트 생성
+*   `[ ]` **UI 구현:** 로그인, 메인(재고 목록), D-Day 표시, '추가하기' 버튼
+*   `[ ]` **기능 1 (바코드):** `mobile_scanner`로 바코드 스캔 → `/lookup_barcode` API 호출 → `inventory` DB 저장
+*   `[ ]` **기능 2 (영수증):** `image_picker`로 사진 촬영/선택 → `/upload_receipt` API 호출 → `receipt_items` 목록 표시
+*   `[ ]` **기능 3 (실시간):** Supabase Realtime 연동 (DB 변경 시 목록 자동 새로고침)
+*   `[ ]` **(제출물) `[3]앱 (APK 파일)`**
 
 ---
 
-### 🏆 Week 4: 'AI 성장' 데모 + 최종 문서화
+### 🏆 Week 4: 데모 영상 및 문서화
 
-* `[ ]` **데모 시나리오 구상:** "실패 → 학습 → 재학습 → 성공" 스토리라인 확정
-* `[ ]` **데모 영상 제작:** 위 시나리오 (D-14 → D-90 변경)를 2~5분 내외로 촬영 및 편집
-* `[ ]` **성과 보고서 작성:** AI 접근법(Hybrid) 및 유통기한 예측 기능 강조 (2페이지)
-* `[ ]` **README.md 작성:** 실행 스크립트 (환경 설정, 학습 방법, 실행 방법) 상세히 기술
-* `[ ]` **최종 제출물 정리:** 7가지 모든 제출물 폴더링 및 최종 점검
-* `[ ]` **(제출물 8) 데모 시연 영상**
-* `[ ]` **(제출물 9) 성과 보고서**
-* `[ ]` **(제출물 10) `README.md` 실행 스크립트**
+*   `[ ]` **데모 시나리오 구상:**
+    1.  [바코드] '서울우유' 바코드를 스캔 → 1초 만에 '서울우유 D-7' 등록 (정확)
+    2.  [영수증] 야채/과일 영수증을 촬영 → AI가 '새송이버섯 D-5' 등록 (스마트)
+    3.  [규칙] '버터'가 포함된 영수증 촬영 → AI가 '버터 D-90'으로 등록 (예외처리)
+*   `[ ]` **데모 영상 제작:** 위 시나리오를 2~5분 내외로 촬영 및 편집
+*   `[ ]` **성과 보고서 작성:** 'AI + 바코드' 하이브리드 방식의 장점 강조
+*   `[ ]` **README.md 최종 업데이트:** 실행 방법, API 명세 등 상세히 기술
+*   `[ ]` **(제출물) `[1]성과보고서`, `[4]데모영상`, `[7]실행스크립트(README)`**
