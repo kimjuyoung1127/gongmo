@@ -6,28 +6,30 @@
 
 ## ✅ 완료된 작업
 
-*   **Week 1: 프로젝트 구조 및 백엔드/DB 초기화**
-    *   `[✅]` Github Monorepo에 `/backend`, `/frontend` 디렉토리 생성
-    *   `[✅]` 백엔드 초기화: Flask 앱(app.py) 및 의존성(requirements.txt) 설정
-    *   `[✅]` 데이터베이스 설계: Supabase 테이블 스키마(v2.0) 생성 및 최신화 (`docs/data.md` 및 `backend/db/schema.sql` 반영)
-    *   `[✅]` 데이터셋 생성: `categories.csv`, `expiry_rules.csv` 정의
-*   **Week 2: AI 모델 및 핵심 백엔드 API 구현 (진행 중)**
-    *   `[✅]` AI 모델 개발: `train.py` 스크립트 작성 (scikit-learn, Tfidf, 나이브 베이즈)
-    *   `[✅]` 모델 훈련: `train.py`를 사용하여 `model.pkl` 파일 생성
-    *   `[✅]` **OCR 엔진 교체:** Clova OCR 대신 **PaddleOCR 설정 및 연동** (`backend/api/app.py`, `backend/utils/expiry_logic.py` 수정 완료)
-    *   `[✅]` `backend/requirements.txt` 업데이트 (`paddleocr`, `openfoodfacts`, `mlflow` 추가)
-    *   `[✅]` `backend/.env` 업데이트 (Clova OCR 키 제거)
-    *   `[✅]` 백엔드 API 구현: Flask `/upload_receipt` 엔드포인트 구현 (PaddleOCR 연동)
-    *   `[✅]` 핵심 로직 구현: 이미지 → PaddleOCR → `model.pkl` 예측 → 유통기한 계산 → Supabase 삽입 흐름 구현
-    *   `[✅]` 로컬 테스트: `test_api.py`를 사용하여 API 로컬 테스트 완료
-    *   `[✅]` 백엔드 구조 개선: Python 파일들을 기능별(`api`, `ml`, `utils` 등)로 정리
+*   **프로젝트 기획 및 재설계**
+    *   `[✅]` `log.md`를 통해 PaddleOCR, 하이브리드 바코드 조회, MLOps 도입 등 새로운 기술 스택 및 아키텍처 확정
+    *   `[✅]` 모든 관련 문서 (`README.md`, `weekplan.md`, `data.md` 등) 최신화 완료
+*   **백엔드 환경 및 기본 설정**
+    *   `[✅]` `requirements.txt`에 `paddleocr`, `openfoodfacts`, `mlflow` 등 신규 라이브러리 추가
+    *   `[✅]` Supabase DB 스키마 최신화 (`receipts`, `inventory` 테이블 등) 및 `barcode` 컬럼 추가
+    *   `[✅]` `.env` 파일에서 Clova OCR 관련 키 제거
+*   **백엔드 핵심 기능 구현**
+    *   `[✅]` **OCR 엔진 교체:** Clova OCR 로직을 **PaddleOCR** 기반으로 성공적으로 교체 (`api/app.py`, `utils/expiry_logic.py`)
+    *   `[✅]` **`/upload_receipt` API 개선:**
+        *   OCR 처리 결과를 새로운 DB 스키마에 맞게 `receipts`, `receipt_items` 테이블에 저장하도록 로직 수정 완료
+        *   AI가 예측한 카테고리 이름을 `category_id`로 변환하는 매핑 로직 추가 완료 (`utils/expiry_logic.py`)
+    *   `[✅]` **`/lookup_barcode` API 구현:**
+        *   API 호출 로직을 `utils/barcode_lookup.py`로 분리
+        *   식품안전나라 + Open Food Facts **하이브리드 조회 전략** 구현 완료
+        *   네트워크 오류 등을 처리하는 **예외 처리 로직** 적용 완료
+        *   외부 카테고리를 내부 `category_id`로 변환하는 **카테고리 매핑** 로직 적용 완료
+        *   성공(200), 실패(404), 서버오류(503)를 구분하여 응답하도록 로직 구현 완료 (`api/app.py`)
 
 ---
 
 ## 🔄 진행 중인 작업
 
-*   `[ ]` **Week 2: 백엔드 API 완성**
-    *   신규 API `/lookup_barcode` 구현 (식품안전나라 + Open Food Facts 하이브리드 전략)
+*   `[ ]` **Week 2: 백엔드 배포**
     *   Flask 전체 앱을 Render 클라우드에 배포
 
 ---
@@ -49,7 +51,7 @@
 
 ## 🎯 차후 계획
 
-1.  백엔드 배포 및 신규 API(`/lookup_barcode`) 구현 완료
+1.  백엔드 클라우드 배포
 2.  React Native 프론트엔드 앱 핵심 기능(바코드, 영수증 스캔) 구현
 3.  백엔드-프론트엔드 통합 테스트
 4.  MLOps 파이프라인 구축 및 AI 모델 지속 개선 (DVC, Evidently AI 등 확장)
