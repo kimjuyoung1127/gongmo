@@ -53,4 +53,8 @@ scanner-project/
 2.  **데이터 모델 확인:** `docs/data.md` 참고
 3.  **프로젝트 계획 확인:** `docs/log.md` 참고
 
+<<<<<<< HEAD
 ---
+=======
+---
+>>>>>>> 7ce5dd9d4ac20d203f838e13efc37779fb43da0e
