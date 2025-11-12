@@ -33,12 +33,11 @@
 
 ```
 scanner-project/
+├── app/                  # ✅ 프론트엔드 (Expo React Native)
 ├── backend/              # ✅ AI 모델, 비즈니스 로직, API 서버 (Python, Flask)
 ├── docs/                 # ✅ 프로젝트 계획, 데이터 모델, MLOps 보고서 등 문서
 ├── frontend/             # ⚠️ (보관됨) 구 버전의 React 웹 프론트엔드
 └── README.md             # 👈 현재 문서
-
-(향후 React Native 앱 소스코드를 위한 /app 디렉토리가 추가될 수 있습니다.)
 ```
 
 ---
@@ -47,8 +46,9 @@ scanner-project/
 
 각 파트별 상세한 설정 및 실행 방법은 해당 디렉토리의 `README.md` 파일을 참고하세요.
 
-1.  **백엔드 실행:** `backend/README.md` 참고
-2.  **데이터 모델 확인:** `docs/data.md` 참고
-3.  **프로젝트 계획 및 MLOps 전략 확인:** `docs/log.md` 참고
+1.  **프론트엔드 실행:** `app/README.md` 참고
+2.  **백엔드 실행:** `backend/README.md` 참고
+3.  **데이터 모델 확인:** `docs/data.md` 참고
+4.  **프로젝트 계획 및 MLOps 전략 확인:** `docs/log.md` 참고
 
 ---
