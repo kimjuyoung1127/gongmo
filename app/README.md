@@ -2,15 +2,35 @@
 
 이 프로젝트는 AI 식료품 관리 앱의 프론트엔드 파트로, **Expo**와 **React Native**를 사용하여 개발되었습니다.
 
-## 🚀 시작하기 (Getting Started)
+**⚠️ 중요: 이 프로젝트는 `react-native-vision-camera`와 같은 네이티브 라이브러리를 사용하므로, 표준 Expo Go 앱에서는 실행할 수 없습니다. 반드시 아래의 '개발 클라이언트' 방식으로 실행해야 합니다.**
+
+---
+
+## 🚀 시작하기 (Development Client 방식)
 
 1.  **의존성 설치:**
     *   `app` 디렉토리에서 다음 명령어를 실행하여 필요한 모든 라이브러리를 설치합니다.
     ```bash
     npm install
     ```
+    *   네이티브 라이브러리 호환성을 위해 다음 명령어를 추가로 실행할 수 있습니다.
+    ```bash
+    npx expo install --fix
+    ```
 
-2.  **환경 변수 설정:**
+2.  **개발용 앱(APK) 설치:**
+    *   **(최초 1회)** 이 프로젝트를 실행하기 위한 개발용 앱(APK)이 필요합니다.
+    *   팀 리더로부터 공유받은 최신 APK 파일을 스마트폰에 직접 설치합니다.
+    *   만약 직접 빌드해야 한다면, [Expo EAS](https://expo.dev/eas)에 로그인 후 다음 명령어를 실행합니다.
+    ```bash
+    # Expo 계정 로그인
+    eas login
+
+    # 개발용 앱 빌드 (시간 소요)
+    eas build --profile development --platform android
+    ```
+
+3.  **환경 변수 설정:**
     *   `app` 디렉토리의 루트에 `.env` 파일을 생성하고, 백엔드 및 Supabase 접속 정보를 입력합니다. Expo에서는 클라이언트에서 접근 가능한 환경 변수 앞에 `EXPO_PUBLIC_` 접두사를 붙여야 합니다.
     ```env
     EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
@@ -18,16 +38,19 @@
     EXPO_PUBLIC_BACKEND_URL=your_backend_api_url
     ```
 
-3.  **개발 서버 실행:**
-    *   다음 명령어를 실행하여 Expo 개발 서버를 시작합니다.
+4.  **개발 서버 실행:**
+    *   **반드시 `--dev-client` 플래그와 함께** 다음 명령어를 실행하여 Expo 개발 서버를 시작합니다.
     ```bash
-    npx expo start
+    npx expo start --dev-client
     ```
-    *   터미널에 나타나는 QR 코드를 스마트폰의 **Expo Go** 앱으로 스캔하면, 개발 중인 앱을 실시간으로 확인할 수 있습니다.
+    *   터미널에 나타나는 QR 코드를 **2번에서 설치한 개발용 앱**으로 스캔하거나, 앱 내에서 직접 서버 주소를 입력하여 접속합니다.
+
+---
 
 ## 🛠️ 주요 기술 및 라이브러리
 
 -   **프레임워크:** React Native (with Expo)
+-   **개발 환경:** Expo Development Client
 -   **화면 이동:** `react-navigation`
 -   **라우팅:** `expo-router` (파일 시스템 기반)
 -   **카메라/스캔:** `react-native-vision-camera`
