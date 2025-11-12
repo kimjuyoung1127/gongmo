@@ -28,26 +28,34 @@ export default function ScanScreen() {
         return;
       }
       
+      const barcode = codes[0].value;
+      console.log(`[1] 바코드 인식 성공: ${barcode}`);
+
       setIsProcessing(true);
       setIsLoading(true);
       Vibration.vibrate(100);
 
-      const barcode = codes[0].value;
-
       try {
+        console.log(`[2] API 호출 시도: ${BACKEND_URL}/lookup_barcode`);
         const response = await axios.post(`${BACKEND_URL}/lookup_barcode`, { barcode });
+        
         if (response.status === 200) {
-          setScannedData({ ...response.data.data, barcode }); // 바코드 정보도 함께 저장
+          console.log('[3] API 호출 성공:', response.data.data);
+          setScannedData({ ...response.data.data, barcode });
         }
       } catch (err) {
+        console.error('[4] API 호출 오류 발생!');
         if (axios.isAxiosError(err) && err.response) {
+          console.error('오류 데이터:', err.response.data);
+          console.error('오류 상태 코드:', err.response.status);
           if (err.response.status === 404) {
             setError('해당 바코드의 상품 정보를 찾을 수 없습니다.');
           } else {
             setError('서버에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
           }
         } else {
-          setError('알 수 없는 오류가 발생했습니다.');
+          console.error('네트워크 오류 또는 알 수 없는 오류:', err);
+          setError('네트워크 연결을 확인해주세요.');
         }
       } finally {
         setIsLoading(false);
@@ -58,7 +66,7 @@ export default function ScanScreen() {
   const handleCloseModal = () => {
     setScannedData(null);
     setError(null);
-    setExpiryDate(''); // 유통기한 초기화
+    setExpiryDate('');
     setIsProcessing(false);
   };
 
@@ -73,14 +81,18 @@ export default function ScanScreen() {
       category_id: scannedData.category_id,
       expiry_date: expiryDate,
       barcode: scannedData.barcode,
-      quantity: 1, // 기본 수량
+      quantity: 1,
     };
 
-    const { error } = await supabase.from('inventory').insert([newInventoryItem]);
+    console.log('[DB-1] 재고 추가 시도. 보낼 데이터:', newInventoryItem);
 
-    if (error) {
-      Alert.alert('저장 실패', error.message);
+    const { error: dbError } = await supabase.from('inventory').insert([newInventoryItem]);
+
+    if (dbError) {
+      console.error('[DB-2] Supabase 저장 오류:', dbError);
+      Alert.alert('저장 실패', dbError.message);
     } else {
+      console.log('[DB-3] Supabase 저장 성공!');
       Alert.alert('저장 성공', '재고에 상품이 추가되었습니다.');
       handleCloseModal();
     }
