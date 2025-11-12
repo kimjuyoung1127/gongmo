@@ -1,187 +1,74 @@
+네, `Phase 2` 시작을 위한 훌륭하고 체계적인 계획입니다. `useCameraPermission`과 `useEffect`를 사용하는 것은 `react-native-vision-camera`를 연동하는 정확한 방법입니다.
+
+이 계획을 **더욱 견고하게** 만들고 **사용자 경험(UX)을 향상**시킬 수 있는 핵심 개선 사항 한 가지를 제안합니다.
 
 -----
 
-### 🎯 1. 핵심 개선점: '카테고리 매핑' 로직 구체화
+### 🚀 핵심 개선: `useIsFocused` 훅 추가
 
-현재 계획은 "상품명"을 가져오는 데 중점을 두지만, `weekplan.md`의 목표는 "상품명 **및 카테고리**"를 반환하는 것입니다.
+현재 계획은 컴포넌트가 처음 마운트될 때(`useEffect`) 권한을 확인합니다. 하지만 다음과 같은 엣지 케이스가 발생할 수 있습니다.
 
-  * **문제:** '식품안전나라'가 반환하는 '유가공품'이나 '과자'라는 텍스트를, 우리 앱 프론트엔드나 `inventory` 테이블이 직접 사용할 수 없습니다.
-  * **해결:** `barcode_lookup.py` 유틸리티 파일은 외부 API에서 받은 '제품 유형' 텍스트를 우리 **내부 `categories.csv` 기준의 `category_id`로 변환**하는 "매핑(mapping)" 로직을 반드시 포함해야 합니다.
+  * **문제 상황:**
 
-**개선된 `backend/utils/barcode_lookup.py` 계획:**
+    1.  사용자가 `app/(tabs)/scan.tsx` 탭에 진입합니다.
+    2.  권한 요청 팝업이 뜨고, 사용자가 "거부"를 누릅니다.
+    3.  사용자가 앱을 나가지 않고, 스마트폰의 "설정"에 직접 들어가서 수동으로 카메라 권한을 "허용"합니다.
+    4.  다시 앱으로 돌아와도, `scan.tsx` 화면은 이미 마운트가 끝났기 때문에 `useEffect`가 다시 실행되지 않아, 앱은 여전히 권한이 "거부"된 것으로 인식합니다.
 
-1.  `_map_external_category_to_internal(external_category_name: str) -> dict | None:`
-      * 이 내부 헬퍼 함수를 새로 만듭니다.
-      * (최초 1회) `categories.csv` 파일을 읽어 매핑 규칙(예: `{"과자": 30, "유제품": 1, ...}`)을 메모리에 로드합니다.
-      * `external_category_name`을 기반으로 `category_id`와 `category_name_kr`을 찾아 `{"id": 30, "name": "과자/스낵"}` 형태로 반환합니다.
-      * 매핑되는 항목이 없으면 `None`을 반환합니다.
-2.  `get_product_info_...` 함수 수정:
-      * 외부 API에서 '상품명(PRDT\_NM)'과 \*\*'제품 유형(PRDLST\_NM)'\*\*을 함께 추출합니다.
-      * `category_info = _map_external_category_to_internal(제품_유형)`을 호출합니다.
-      * **표준화된 딕셔너리:** `{ "name": "상품명", "category_id": category_info["id"], "category_name_kr": category_info["name"] }`를 반환합니다.
-      * 만약 `category_info`가 `None`이라면 (매핑 실패), 제품을 찾지 못한 것과 동일하게 `None`을 반환합니다.
+  * **해결책:**
+
+      * `@react-navigation/native`의 **`useIsFocused`** 훅을 사용합니다.
+      * 이 훅은 사용자가 `scan.tsx` 탭을 **볼 때마다** `true`가 됩니다.
+      * `useEffect`가 `isFocused` 상태에 의존하게 만들면, 사용자가 이 탭으로 돌아올 때마다 권한을 다시 확인할 수 있습니다.
 
 -----
 
-### 🛡️ 2. 개선점: 견고한 예외 처리 (Error Handling) 추가
+### 📝 개선된 세부 계획 (v2)
 
-현재 계획은 "결과가 없으면 `None`을 반환"하는 성공/실패(Not Found) 두 가지 경우만 다룹니다. 하지만 실제로는 **API 서버 자체가 다운**되거나 **네트워크가 불안정**할 수 있습니다.
+1.  **필요한 훅 모두 임포트:**
 
-  * **문제:** `requests.get()` 호출이 타임아웃되거나 `openfoodfacts` 라이브러리가 연결에 실패하면, Flask 서버 전체가 500 오류로 멈추게 됩니다.
-  * **해결:** `barcode_lookup.py`의 각 함수 내부에 `try...except` 구문을 추가해야 합니다.
+      * `app/(tabs)/scan.tsx` 파일에 다음 훅들을 임포트합니다.
+      * `useCameraPermission`, `useCameraDevice` (from `react-native-vision-camera`)
+      * `useEffect`, `useState` (from `react`)
+      * `useIsFocused` (from `@react-navigation/native`)
 
-**개선된 `get_product_info_...` 함수 로직 (예시):**
+2.  **상태 관리:**
 
-```python
-import requests
-from requests.exceptions import RequestException
+    ```tsx
+    import { useCameraPermission, useCameraDevice } from 'react-native-vision-camera';
+    import { useIsFocused } from '@react-navigation/native';
 
-def get_product_info_from_food_safety_korea(barcode):
-    try:
-        # API 키 및 URL 설정
-        api_key = os.environ.get('FOOD_SAFETY_KOREA_API_KEY')
-        url = f"https://.../api/{api_key}/.../{barcode}"
-        
-        # [개선점 2] 네트워크 예외 처리
-        response = requests.get(url, timeout=5) # 5초 타임아웃 설정
-        response.raise_for_status() # 4xx, 5xx 오류 시 예외 발생
-        
-        data = response.json()
+    // ...
+    const { hasPermission, requestPermission } = useCameraPermission();
+    const device = useCameraDevice('back');
+    const isFocused = useIsFocused();
+    ```
 
-        if data['C005']['total_count'] == '0':
-            return None # 404: 제품 없음
+3.  **UI 렌더링 로직 (v2):**
 
-        # 제품 정보 추출
-        product_data = data['C005']['row'][0]
-        product_name = product_data['PRDT_NM']
-        external_category = product_data['PRDLST_NM']
+      * **1순위 (디바이스 확인):** `device == null` 이면, "카메라를 찾을 수 없습니다" 또는 로딩 스피너를 표시합니다.
+      * **2순위 (권한 확인):** `!hasPermission` 이면, "카메라 권한이 필요합니다"라는 텍스트와 `onPress={requestPermission}`가 연결된 "권한 요청" 버튼을 렌더링합니다.
+      * **3순위 (카메라 렌더링):** `device`와 `hasPermission`이 모두 준비되면 `<Camera>` 컴포넌트를 렌더링합니다.
 
-        # [개선점 1] 카테고리 매핑
-        category_info = _map_external_category_to_internal(external_category)
+4.  **✨ (핵심) `<Camera>` 컴포넌트 최적화:**
 
-        if not category_info:
-            return None # 404: 제품은 찾았으나 우리 DB에 매핑되는 카테고리가 없음
+      * `<Camera>` 컴포넌트의 `isActive` prop에 `isFocused`를 전달합니다.
 
-        return {
-            "name": product_name,
-            "category_id": category_info["id"],
-            "category_name_kr": category_info["name"]
-        }
+    <!-- end list -->
 
-    except RequestException as e:
-        # [개선점 2] 네트워크/API 오류 발생 시
-        print(f"Food Safety Korea API Error: {e}")
-        return {"error": "api_failed"} # None 대신 오류 상태 반환
-    except Exception as e:
-        # 기타 파싱 오류 등
-        print(f"Barcode lookup logic error: {e}")
-        return {"error": "internal_error"}
-```
+    ```tsx
+    if (device != null && hasPermission) {
+      return (
+        <Camera
+          style={{ flex: 1 }}
+          device={device}
+          isActive={isFocused} // ✨ 사용자가 이 탭을 볼 때만 카메라 활성화
+          // ... (Phase 2의 바코드 스캐너 props는 여기에 추가)
+        />
+      );
+    }
+    ```
 
------
+      * **이점:** `isFocused`를 `isActive`에 연결하면, 사용자가 '재고'나 '설정' 탭으로 이동할 때 카메라가 자동으로 비활성화되어 배터리와 시스템 리소스를 크게 절약할 수 있습니다.
 
-### 📦 요약: 개선된 최종 플랜
-
-이 두 가지 개선점을 반영하면, `app.py`는 \*\*3가지 상태(성공, 찾을 수 없음, 서버 오류)\*\*를 명확히 구분하여 앱(프론트엔드)에 훨씬 더 친절한 응답을 보낼 수 있습니다.
-
-**`backend/api/app.py` 로직:**
-
-1.  `result_korea = get_product_info_from_food_safety_korea(barcode)` 호출.
-2.  **if `result_korea`가 딕셔너리이고 'error' 키가 없다면:**
-      * `return jsonify(result_korea), 200` (성공)
-3.  **if `result_korea`가 `None`이거나:** (즉, 한국 API에서 못 찾음)
-      * `result_off = get_product_info_from_open_food_facts(barcode)` 호출.
-      * **if `result_off`가 딕셔너리이고 'error' 키가 없다면:**
-          * `return jsonify(result_off), 200` (성공)
-      * **else if `result_off`가 `None`:**
-          * `return jsonify({"status": "not_found", "message": "..."}), 404` (두 곳 모두에서 못 찾음)
-      * **else (즉, `result_off`에 'error' 키가 있다면):**
-          * `return jsonify({"status": "error", "message": "Open Food Facts API 오류"}), 503` (외부 서비스 장애)
-4.  **else (즉, `result_korea`에 'error' 키가 있다면):**
-      * `return jsonify({"status": "error", "message": "식품안전나라 API 오류"}), 503` (외부 서비스 장애)
-
-
-
-## ✅ 목표: 바코드로 상품 정보를 가져오고, 우리 앱에서 쓸 수 있게 정리하기
-
-### 📌 우리가 원하는 결과
-바코드를 입력하면 이런 딕셔너리를 반환하고 싶어요:
-
-```json
-{
-  "name": "서울우유 흰우유 1L",
-  "category_id": 1,
-  "category_name_kr": "유제품"
-}
-```
-
----
-
-## 🧠 핵심 개선 1: **카테고리 매핑 로직 추가**
-
-### 문제
-- 외부 API는 `"유가공품"` 같은 **텍스트**만 줘요.
-- 근데 우리 앱은 숫자 ID (`category_id`)와 **표준화된 이름**이 필요해요.
-
-### 해결 방법
-- `categories.csv` 파일을 읽어서, 외부 텍스트 → 내부 ID로 바꾸는 **매핑 함수**를 만들어요.
-
-### 예시 함수
-```python
-def _map_external_category_to_internal(external_category_name):
-    # 예: {"유가공품": {"id": 1, "name": "유제품"}, ...}
-    if not hasattr(_map_external_category_to_internal, "category_map"):
-        with open("categories.csv", encoding="utf-8") as f:
-            # CSV 읽고 딕셔너리로 저장
-            _map_external_category_to_internal.category_map = {...}
-
-    return _map_external_category_to_internal.category_map.get(external_category_name)
-```
-
----
-
-## 🛡️ 핵심 개선 2: **예외 처리 추가**
-
-### 문제
-- 외부 API가 죽거나, 인터넷이 끊기면 서버가 **500 에러**로 터져요.
-
-### 해결 방법
-- `try...except`로 감싸서, 오류가 나도 **친절한 메시지**를 주도록 해요.
-
-### 예시 코드
-```python
-try:
-    response = requests.get(url, timeout=5)
-    response.raise_for_status()
-    ...
-except RequestException:
-    return {"error": "api_failed"}
-except Exception:
-    return {"error": "internal_error"}
-```
-
----
-
-## 🧩 최종 구조 요약
-
-### `barcode_lookup.py` (utils)
-- 외부 API에서 상품명 + 제품유형 가져오기
-- 제품유형 → `category_id`로 매핑
-- 예외 발생 시 `"error"` 포함된 딕셔너리 반환
-
-### `app.py` (라우팅)
-- 3가지 경우로 나눠서 응답:
-  1. ✅ 성공 → `200 OK`
-  2. ❌ 못 찾음 → `404 Not Found`
-  3. ⚠️ API 오류 → `503 Service Unavailable`
-
----
-
-## 🎯 결론
-
-이제 이 구조로 구현하면:
-- **프론트엔드가 처리하기 쉬운 응답**을 받고,
-- **API 장애에도 서버가 멈추지 않고**, 
-- **카테고리도 자동으로 매핑**되니, 훨씬 견고하고 확장 가능한 시스템이 됩니다.
-
----
+이 개선안을 반영하면, 어떤 상황에서든 사용자의 권한 상태를 앱이 정확하게 인지하고 반응할 수 있게 됩니다.
