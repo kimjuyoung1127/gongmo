@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Button, Modal, ActivityIndicator, Vibration } from 'react-native';
+import { View, Text, StyleSheet, Button, Modal, ActivityIndicator, Vibration, TextInput, Alert } from 'react-native';
 import { useCameraPermission, useCameraDevice, Camera, useCodeScanner } from 'react-native-vision-camera';
 import { useIsFocused } from '@react-navigation/native';
 import axios from 'axios';
+import { supabase } from '../../lib/supabase'; // Supabase 클라이언트 임포트
 
 //  중요: 이 URL을 실제 실행 중인 백엔드 서버의 IP 주소로 변경하세요.
-const BACKEND_URL = '- 브라우저에서 http://127.0.0.1:5000'; 
+const BACKEND_URL = 'http://172.30.1.93:5000'; 
 
 export default function ScanScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -17,25 +18,26 @@ export default function ScanScreen() {
   const [scannedData, setScannedData] = useState(null);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [expiryDate, setExpiryDate] = useState(''); // 유통기한 상태 추가
 
   // --- Code Scanner 훅 구현 ---
   const codeScanner = useCodeScanner({
     codeTypes: ['ean-13', 'qr'],
     onCodeScanned: async (codes) => {
       if (isProcessing || codes.length === 0) {
-        return; // 이미 처리 중이거나 코드가 없으면 무시
+        return;
       }
       
-      setIsProcessing(true); // 스캔 잠금
+      setIsProcessing(true);
       setIsLoading(true);
-      Vibration.vibrate(100); // 사용자에게 피드백
+      Vibration.vibrate(100);
 
       const barcode = codes[0].value;
 
       try {
         const response = await axios.post(`${BACKEND_URL}/lookup_barcode`, { barcode });
         if (response.status === 200) {
-          setScannedData(response.data.data);
+          setScannedData({ ...response.data.data, barcode }); // 바코드 정보도 함께 저장
         }
       } catch (err) {
         if (axios.isAxiosError(err) && err.response) {
@@ -56,16 +58,37 @@ export default function ScanScreen() {
   const handleCloseModal = () => {
     setScannedData(null);
     setError(null);
-    setIsProcessing(false); // 다음 스캔을 위해 잠금 해제
+    setExpiryDate(''); // 유통기한 초기화
+    setIsProcessing(false);
+  };
+
+  const handleAddToInventory = async () => {
+    if (!scannedData || !expiryDate) {
+      Alert.alert('입력 오류', '유통기한을 입력해주세요. (예: 2025-12-31)');
+      return;
+    }
+
+    const newInventoryItem = {
+      name: scannedData.name,
+      category_id: scannedData.category_id,
+      expiry_date: expiryDate,
+      barcode: scannedData.barcode,
+      quantity: 1, // 기본 수량
+    };
+
+    const { error } = await supabase.from('inventory').insert([newInventoryItem]);
+
+    if (error) {
+      Alert.alert('저장 실패', error.message);
+    } else {
+      Alert.alert('저장 성공', '재고에 상품이 추가되었습니다.');
+      handleCloseModal();
+    }
   };
 
   // 1. 카메라 디바이스 확인
   if (device == null) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.message}>카메라를 찾을 수 없습니다.</Text>
-      </View>
-    );
+    return <View style={styles.container}><Text style={styles.message}>카메라를 찾을 수 없습니다.</Text></View>;
   }
 
   // 2. 카메라 권한 확인
@@ -84,18 +107,13 @@ export default function ScanScreen() {
       <Camera
         style={StyleSheet.absoluteFill}
         device={device}
-        isActive={isFocused && !scannedData && !error} // 모달이 떴을 때 카메라 비활성화
+        isActive={isFocused && !scannedData && !error}
         codeScanner={codeScanner}
       />
       
       {isLoading && <ActivityIndicator size="large" color="#ffffff" />}
       
-      <Modal
-        transparent={true}
-        visible={!!scannedData || !!error}
-        animationType="slide"
-        onRequestClose={handleCloseModal}
-      >
+      <Modal transparent={true} visible={!!scannedData || !!error} animationType="slide" onRequestClose={handleCloseModal}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             {scannedData && (
@@ -103,9 +121,14 @@ export default function ScanScreen() {
                 <Text style={styles.modalTitle}>상품 정보</Text>
                 <Text style={styles.modalText}>이름: {scannedData.name}</Text>
                 <Text style={styles.modalText}>카테고리: {scannedData.category_name_kr}</Text>
-                {/* TODO: 유통기한 입력 및 재고 추가 로직 */}
+                <TextInput
+                  style={styles.input}
+                  placeholder="유통기한 입력 (YYYY-MM-DD)"
+                  value={expiryDate}
+                  onChangeText={setExpiryDate}
+                />
                 <View style={styles.buttonContainer}>
-                  <Button title="재고에 추가" onPress={handleCloseModal} />
+                  <Button title="재고에 추가" onPress={handleAddToInventory} />
                 </View>
               </>
             )}
@@ -126,42 +149,20 @@ export default function ScanScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'black',
-  },
-  message: {
-    fontSize: 18,
-    color: 'white',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 22,
-    borderRadius: 10,
-    width: '80%',
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  modalText: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  buttonContainer: {
-    marginTop: 15,
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'black' },
+  message: { fontSize: 18, color: 'white', marginBottom: 20, textAlign: 'center' },
+  modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalContent: { backgroundColor: 'white', padding: 22, borderRadius: 10, width: '80%', alignItems: 'center' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 12 },
+  modalText: { fontSize: 16, marginBottom: 8 },
+  input: {
     width: '100%',
+    height: 40,
+    borderColor: 'gray',
+    borderWidth: 1,
+    borderRadius: 5,
+    marginTop: 10,
+    paddingHorizontal: 10,
   },
+  buttonContainer: { marginTop: 15, width: '100%' },
 });
