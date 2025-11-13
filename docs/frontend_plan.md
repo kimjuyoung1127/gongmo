@@ -21,7 +21,7 @@
     - [x] `app/(tabs)/` 디렉토리 생성
     - [x] `app/(tabs)/_layout.tsx` 파일 생성 (하단 탭 네비게이터 설정)
     - [x] `app/(tabs)/index.tsx` 파일 생성 ('재고' 탭 화면)
-    - [x] `app/(tabs)/scan.tsx` 파일 생성 ('스캔' 탭 화면)
+    - [x] `app/(tabs)/scan.tsx` 파일 생성 ('스캔' 탭 화면) [✅ 2025-11-13 QR 코드 필터링 추가]
     - [x] `app/(tabs)/settings.tsx` 파일 생성 ('설정' 탭 화면)
     - [x] `app/_layout.tsx` 파일 생성 (최상위 레이아웃 설정)
 - [x] **카메라 권한 설정:** `react-native-vision-camera` 사용을 위한 권한 요청 로직 추가 (`scan.tsx`에 구현 완료)
@@ -37,6 +37,8 @@
 - [x] **API 연동:** 인식된 바코드 값으로 백엔드의 `/lookup_barcode` API 호출 (로딩 인디케이터 표시)
 - [x] **결과 표시:** API로부터 받은 상품명/카테고리 정보를 Modal 형태로 표시
 - [x] **재고 추가:** 결과 팝업에서 유통기한 입력 후 '재고에 추가' 버튼을 누르면 Supabase DB에 저장하는 로직 구현
+    - [x] 카테고리 ID 유효성 검사 및 기본값 처리 구현
+    - [x] 상세한 콘솔 로깅 및 디버깅 기능 추가
 
 ---
 
