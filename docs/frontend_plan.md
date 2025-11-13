@@ -66,6 +66,11 @@ Supabase와 연동하여 실제 재고 데이터를 관리합니다.
 
 ## 추가 고려사항: 사용자 인증
 
-- [ ] **Supabase Auth 연동:** 로그인/회원가입 화면 구현 및 Supabase Auth를 통한 사용자 인증 처리
-- [ ] **인증 토큰 관리:** 로그인 성공 시 발급되는 JWT 토큰을 저장하고, 모든 백엔드 API 요청 시 헤더에 포함하여 전송
+- [x] **Supabase Auth 연동:** 로그인/회원가입 화면 구현 및 Supabase Auth를 통한 사용자 인증 처리
+    - [x] `app/sign-in.tsx` 파일에서 Google OAuth 구현 완료
+    - [x] Deprecated된 'Expo 프록시' 방식 대신 '네이티브 딥 링크' 방식으로 전환 완료
+    - [x] `Linking.useURL()` 훅과 `createSessionFromUrl` 함수를 사용한 딥 링크 처리 구현
+- [x] **인증 토큰 관리:** 로그인 성공 시 발급되는 JWT 토큰을 저장하고, 모든 백엔드 API 요청 시 헤더에 포함하여 전송
+    - [x] `supabase.auth.setSession`을 사용한 세션 설정 구현 완료
+    - [x] AsyncStorage를 통한 토큰 영속성 보장
 - [ ] **백엔드 인증 로직:** 백엔드 API가 요청 헤더의 토큰을 검증하여 사용자 식별 로직 추가 (백엔드 수정 필요)

@@ -161,3 +161,34 @@ WHERE
     status = 'active'
 ORDER BY
     expiry_date ASC;
+
+-- ===== 5. AUTHENTICATION & SECURITY (OAuth2.0 설정) =====
+
+/*
+Google OAuth 인증을 위한 설정 및 권장 구조입니다.
+
+OAuth 흐름:
+1. 앱은 Supabase의 signInWithOAuth를 사용하여 Google 로그인 URL을 요청
+2. WebBrowser.openAuthSessionAsync를 통해 외부 브라우저에서 인증 진행
+3. 인증 완료 후 앱으로 'app://' 딥 링크로 리디렉션
+4. Linking.useURL()으로 딥 링크 수신 및 createSessionFromUrl()로 토큰 파싱
+5. 파싱된 토큰으로 supabase.auth.setSession() 호출하여 로그인 완료
+
+중요 설정:
+- app.json: intentFilters에 'app://' 스킴 등록 필요
+- Google Console: 'app://' 스킴을 리디렉션 URI로 설정
+- Supabase: 'app://' 스킴을 인증 callback URL로 설정
+- Expo 프록시 방식(auth.expo.io)은 deprecated 되었으므로 사용 금지
+*/
+
+-- OAuth 연동을 위한 Supabase 사용자 테이블 컬럼 참고
+-- (Supabase auth.users 테이블은 기본 제공되며, 직접 생성할 필요 없음)
+/*
+CREATE TABLE auth.users (
+  id uuid NOT NULL,
+  email text,
+  encrypted_password text,
+  email_confirmed_at timestamptz,
+  ...
+);
+*/
