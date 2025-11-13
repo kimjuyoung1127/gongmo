@@ -26,8 +26,11 @@
 
 ### 📱 Week 3: 프론트엔드 앱(React Native) 구현
 
-*   `[ ]` **프로젝트 생성:** React Native(Expo) 프로젝트 생성
-*   `[ ]` **UI 구현:** 로그인, 메인(재고 목록), D-Day 표시, '추가하기' 버튼
+*   `[x]` **프로젝트 생성:** React Native(Expo) 프로젝트 생성
+*   `[x]` **사용자 인증 구현:** Google OAuth 및 Supabase Auth 연동 완료
+    - `[x]` 'Expo 프록시' 방식에서 '네이티브 딥 링크' 방식으로 전환 완료
+    - `[x]` `Linking.useURL()` 훅과 `createSessionFromUrl` 함수로 딥 링크 처리
+*   `[ ]` **UI 구현:** 메인(재고 목록), D-Day 표시, '추가하기' 버튼
 *   `[ ]` **기능 1 (바코드):** `react-native-vision-camera`로 바코드 스캔 → `/lookup_barcode` API 호출 → `inventory` DB 저장
 *   `[ ]` **기능 2 (영수증):** `react-native-vision-camera`로 사진 촬영/선택 → `@react-native-ml-kit/text-recognition` (온디바이스 OCR) 또는 `/upload_receipt` API 호출 → `receipt_items` 목록 표시
 *   `[ ]` **기능 3 (실시간):** Supabase Realtime 연동 (DB 변경 시 목록 자동 새로고침)
