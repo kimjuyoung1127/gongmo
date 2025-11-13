@@ -31,7 +31,7 @@ export default function ScanScreen() {
 
   // --- Code Scanner 훅 구현 ---
   const codeScanner = useCodeScanner({
-    codeTypes: ['ean-13', 'qr'],
+    codeTypes: ['ean-13'],  // 바코드만 스캔 (QR 코드 제외)
     onCodeScanned: async (codes) => {
       if (isProcessing || codes.length === 0) {
         return;
@@ -132,13 +132,13 @@ export default function ScanScreen() {
       return;
     }
 
-    // Validate category_id exists in the categories table
-    const validCategoryIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36]; // IDs from categories.csv
+    // Validate category_id exists in the categories_proper table
+    const validCategoryIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]; // IDs from categories_proper.csv
 
     let categoryId = scannedData.category_id;
     if (!validCategoryIds.includes(categoryId)) {
       console.warn(`[INV-VALIDATION] Invalid category_id received: ${categoryId}. Using fallback category.`);
-      categoryId = 36; // Using "반조리/냉동 HMR" as a fallback
+      categoryId = 30; // Using "과자/스낵" as a fallback (ID 30 exists in categories_proper.csv)
     }
 
     const newInventoryItem: {

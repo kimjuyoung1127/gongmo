@@ -11,20 +11,30 @@ _category_map_by_name_cache = None
 
 def _load_category_map_by_name():
     """
-    categories.csv 파일을 읽어 카테고리 이름과 ID를 매핑하는 딕셔너리를 생성하고 캐싱합니다.
+    categories_proper.csv 파일을 읽어 카테고리 이름과 ID를 매핑하는 딕셔너리를 생성하고 캐싱합니다.
     """
     category_map = {}
     try:
-        with open('backend/data/categories.csv', mode='r', encoding='utf-8') as infile:
+        # 절대 경로를 사용하여 파일 찾기
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        csv_path = os.path.join(current_dir, '..', 'data', 'categories_proper.csv')
+        
+        with open(csv_path, mode='r', encoding='utf-8') as infile:
             reader = csv.DictReader(infile)
-            for row in reader:
+            for idx, row in enumerate(reader):
+                # 인덱스를 기반으로 ID 생성 (1부터 시작)
+                category_id = idx + 1
                 category_map[row['category_name_kr']] = {
-                    "id": int(row['id']),
+                    "id": category_id,
                     "code": row['category_code']
                 }
+        print(f"Info: {len(category_map)}개의 카테고리를 {csv_path}에서 성공적으로 로드했습니다.")
         return category_map
     except FileNotFoundError:
-        print("Warning: backend/data/categories.csv 파일을 찾을 수 없습니다. 카테고리 ID 매핑이 비활성화됩니다.")
+        print(f"Warning: {csv_path} 파일을 찾을 수 없습니다. 카테고리 ID 매핑이 비활성화됩니다.")
+        return {}
+    except Exception as e:
+        print(f"Error: 카테고리 파일 로드 중 오류 발생: {e}")
         return {}
 
 def _get_category_id_by_name(category_name: str):

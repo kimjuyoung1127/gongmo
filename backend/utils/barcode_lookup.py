@@ -8,27 +8,33 @@ import openfoodfacts
 
 def _load_category_map():
     """
-    categories.csv 파일을 읽어 외부 카테고리명과 내부 카테고리 ID를 매핑하는 딕셔너리를 생성하고 캐싱합니다.
+    categories_proper.csv 파일을 읽어 외부 카테고리명과 내부 카테고리 ID를 매핑하는 딕셔너리를 생성하고 캐싱합니다.
     이 함수는 첫 API 호출 시 한 번만 실행됩니다.
     """
     category_map = {}
     try:
-        # [수정] 현재 파일의 위치를 기준으로 절대 경로 생성
+        # 현재 파일의 위치를 기준으로 절대 경로 생성
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        csv_path = os.path.join(current_dir, '..', 'data', 'categories.csv')
+        csv_path = os.path.join(current_dir, '..', 'data', 'categories_proper.csv')
 
         with open(csv_path, mode='r', encoding='utf-8') as infile:
             reader = csv.DictReader(infile)
-            for row in reader:
+            for idx, row in enumerate(reader):
+                # 인덱스를 기반으로 ID 생성 (1부터 시작)
+                category_id = idx + 1
                 # category_name_kr을 키로 사용하고, id와 name을 값으로 저장
                 category_map[row['category_name_kr']] = {
-                    "id": int(row['category_id']),
-                    "name": row['category_name_kr']
+                    "id": category_id,
+                    "name": row['category_name_kr'],
+                    "code": row['category_code']
                 }
-        print("Info: categories.csv 파일을 성공적으로 로드했습니다.")
+        print(f"Info: {len(category_map)}개의 카테고리를 {csv_path}에서 성공적으로 로드했습니다.")
         return category_map
     except FileNotFoundError:
-        print("Warning: backend/data/categories.csv 파일을 찾을 수 없습니다. 카테고리 매핑이 비활성화됩니다.")
+        print(f"Warning: {csv_path} 파일을 찾을 수 없습니다. 카테고리 매핑이 비활성화됩니다.")
+        return {}
+    except Exception as e:
+        print(f"Error: 카테고리 파일 로드 중 오류 발생: {e}")
         return {}
 
 _category_map_cache = None
@@ -70,6 +76,66 @@ def _map_external_category_to_internal(external_category_name: str):
 
 
 # --- 2. 외부 API 호출 함수들 ---
+
+# Supabase 클라이언트 전역 변수 (app.py에서 설정)
+_supabase_client = None
+
+def set_supabase_client(client):
+    """
+    app.py에서 초기화된 Supabase 클라이언트를 설정합니다.
+    """
+    global _supabase_client
+    _supabase_client = client
+
+def get_product_info_from_db(barcode: str):
+    """
+    Supabase DB에서 바코드 정보를 먼저 조회합니다 (캐싱).
+    """
+    try:
+        if not _supabase_client:
+            print("[백엔드] 오류: Supabase 클라이언트가 초기화되지 않았습니다")
+            return None
+        
+        result = _supabase_client.table('products').select('*').eq('barcode', barcode).single().execute()
+        
+        if result.data:
+            print(f"[백엔드] ✅ DB HIT: {barcode}")
+            return result.data
+        
+        return None
+    except Exception as e:
+        print(f"[백엔드] DB 조회 오류: {e}")
+        return None
+
+def save_product_to_db(barcode: str, product_info: dict):
+    """
+    외부 API에서 조회한 제품 정보를 Supabase DB에 저장합니다.
+    """
+    try:
+        if not _supabase_client:
+            print("[백엔드] 오류: Supabase 클라이언트가 초기화되지 않았습니다")
+            return None
+        
+        # DB에 저장할 데이터 구성
+        db_product = {
+            "barcode": barcode,
+            "product_name": product_info.get('name'),
+            "category_id": product_info.get('category_id'),
+            "manufacturer": product_info.get('manufacturer', '알 수 없음'),
+            "source": product_info.get('source'),
+            "verified": True  # 외부 API 데이터는 신뢰할 수 있으므로 검증됨으로 표시
+        }
+        
+        result = _supabase_client.table('products').insert(db_product).execute()
+        
+        if result.data:
+            print(f"[백엔드] ✅ DB 저장 성공: {barcode}")
+            return result.data[0]
+        
+        return None
+    except Exception as e:
+        print(f"[백엔드] DB 저장 오류: {e}")
+        return None
 
 def get_product_info_from_food_safety_korea(barcode: str):
     """
@@ -125,7 +191,8 @@ def get_product_info_from_food_safety_korea(barcode: str):
             "name": product_name,
             "category_id": category_info["id"],
             "category_name_kr": category_info["name"],
-            "source": "food_safety_korea"
+            "source": "food_safety_korea",
+            "manufacturer": product_data.get('PRDT_CO_NM', '알 수 없음')  # 제조사 정보 추가
         }
 
     except RequestException as e:
@@ -161,7 +228,8 @@ def get_product_info_from_open_food_facts(barcode: str):
             "name": product_name,
             "category_id": category_info["id"],
             "category_name_kr": category_info["name"],
-            "source": "open_food_facts"
+            "source": "open_food_facts",
+            "manufacturer": product.get('brands', '알 수 없음')  # 제조사 정보 추가
         }
     except Exception as e:
         print(f"Open Food Facts API Error: {e}")
@@ -203,7 +271,8 @@ def get_product_info_from_food_qr(barcode: str):
             "name": product_name,
             "category_id": category_info["id"],
             "category_name_kr": category_info["name"],
-            "source": "food_qr"
+            "source": "food_qr",
+            "manufacturer": "알 수 없음"  # FOOD_QR API는 제조사 정보를 제공하지 않음
         }
 
     except RequestException as e:

@@ -31,7 +31,9 @@
     - `[x]` 'Expo 프록시' 방식에서 '네이티브 딥 링크' 방식으로 전환 완료
     - `[x]` `Linking.useURL()` 훅과 `createSessionFromUrl` 함수로 딥 링크 처리
 *   `[ ]` **UI 구현:** 메인(재고 목록), D-Day 표시, '추가하기' 버튼
-*   `[ ]` **기능 1 (바코드):** `react-native-vision-camera`로 바코드 스캔 → `/lookup_barcode` API 호출 → `inventory` DB 저장
+*   `[x]` **기능 1 (바코드):** `react-native-vision-camera`로 바코드 스캔 → `/lookup_barcode` API 호출 → `inventory` DB 저장
+    - `[x]` 카테고리 ID 유효성 검사 및 기본값 처리
+    - `[x]` 상세한 콘솔 로깅 시스템 구현
 *   `[ ]` **기능 2 (영수증):** `react-native-vision-camera`로 사진 촬영/선택 → `@react-native-ml-kit/text-recognition` (온디바이스 OCR) 또는 `/upload_receipt` API 호출 → `receipt_items` 목록 표시
 *   `[ ]` **기능 3 (실시간):** Supabase Realtime 연동 (DB 변경 시 목록 자동 새로고침)
 *   `[ ]` **(제출물) `[3]앱 (APK 파일)`**

@@ -8,7 +8,14 @@ from paddleocr import PaddleOCR
 from utils.expiry_logic import process_receipt_image
 from supabase import create_client, Client
 # 바코드 조회 유틸리티 함수 임포트
-from utils.barcode_lookup import get_product_info_from_food_safety_korea, get_product_info_from_open_food_facts, get_product_info_from_food_qr
+from utils.barcode_lookup import (
+    set_supabase_client,
+    get_product_info_from_db, 
+    save_product_to_db,
+    get_product_info_from_food_safety_korea, 
+    get_product_info_from_open_food_facts, 
+    get_product_info_from_food_qr
+)
 
 # .env 파일에서 환경 변수 로드
 load_dotenv()
@@ -23,8 +30,12 @@ ocr = PaddleOCR(lang='korean')
 
 # Supabase 클라이언트 초기화
 supabase_url = os.environ.get('SUPABASE_URL')
-supabase_key = os.environ.get('SUPABASE_SERVICE_KEY')  # 쓰기 작업에는 서비스 키 사용
+supabase_key = os.environ.get('SUPABASE_ANON_KEY')  # 일단 ANON 키로 테스트
 supabase: Client = create_client(supabase_url, supabase_key) if supabase_url and supabase_key else None
+
+# barcode_lookup.py에 Supabase 클라이언트 전달
+if supabase:
+    set_supabase_client(supabase)
 
 # 기본 상태 확인 엔드포인트
 @app.route('/health', methods=['GET'])
@@ -32,7 +43,7 @@ def health_check():
     return jsonify({'status': 'OK', 'message': 'Flask 서버가 작동 중입니다'})
 
 # 영수증 업로드 엔드포인트
-@app.route('/upload', methods=['POST'])
+@app.route('/upload_receipt_image', methods=['POST'])
 def upload_receipt():
     """
     영수증 이미지를 수신하고, PaddleOCR 및 AI 모델을 통해 처리한 후,
@@ -80,12 +91,11 @@ def upload_receipt():
                 # 2. receipt_items 테이블에 삽입할 데이터 준비
                 items_to_insert = []
                 for item in processed_items:
-                    # TODO: process_receipt_image가 category_id를 반환하도록 수정 필요
                     items_to_insert.append({
                         "receipt_id": receipt_id,
-                        "raw_text": item.get('item_name'), # TODO: 원본 텍스트 필드 필요
+                        "raw_text": item.get('item_name'), 
                         "clean_text": item.get('item_name'),
-                        # "category_id": item.get('category_id'), 
+                        "category_id": item.get('category_id'),  # 카테고리 ID 추가
                         "expiry_days": item.get('predicted_expiry_days'),
                         "status": 'parsed'
                     })
@@ -109,12 +119,12 @@ def upload_receipt():
             'message': str(e)
         }), 500
 
-# 바코드 조회 엔드포인트 (구현 완료)
+# 바코드 조회 엔드포인트 (DB 캐싱 추가)
 @app.route('/lookup_barcode', methods=['POST'])
 def lookup_barcode():
     """
-    바코드 번호를 받아 외부 API를 통해 상품 정보를 조회하는 API 엔드포인트입니다.
-    하이브리드 전략: 1. Open Food Facts -> 2. FOOD_QR -> 3. 식품안전나라
+    바코드 번호를 받아 먼저 DB를 조회한 후, 없으면 외부 API를 통해 상품 정보를 조회합니다.
+    1. DB 캐시 조회 -> 2. 외부 API 호출 -> 3. DB 저장
     """
     try:
         data = request.get_json()
@@ -123,32 +133,69 @@ def lookup_barcode():
         if not barcode:
             return jsonify({'status': 'error', 'message': '바코드 번호가 제공되지 않았습니다'}), 400
 
-        # 1. Open Food Facts API 먼저 조회
+        print(f"\n--- [LOOKUP] 바코드 조회 시작: {barcode} ---")
+        
+        # 1. DB 캐시 먼저 조회
+        product_info = get_product_info_from_db(barcode)
+        if product_info:
+            print(f"[LOOKUP] ✅ DB HIT: {barcode}")
+            return jsonify({
+                'status': 'success', 
+                'message': 'DB에서 상품 정보를 성공적으로 조회했습니다', 
+                'data': product_info
+            }), 200
+        
+        print(f"[LOOKUP] ⚠️ DB MISS: {barcode} - 외부 API 호출 필요")
+
+        # 2. DB에 없을 경우 외부 API 호출
+        # 2-1. Open Food Facts API 먼저 조회 (무제한)
         product_info = get_product_info_from_open_food_facts(barcode)
         if product_info and 'error' not in product_info:
-            return jsonify({'status': 'success', 'message': 'Open Food Facts API에서 상품 정보를 성공적으로 조회했습니다', 'data': product_info}), 200
-        if product_info and 'error' in product_info:
-            print(f"Open Food Facts API Error: {product_info['error']}")
-
-        # 2. FOOD_QR API 조회
+            print(f"[LOOKUP] ✅ Open Food Facts HIT: {barcode}")
+            # DB에 저장하고 반환
+            saved_product = save_product_to_db(barcode, product_info)
+            if saved_product:
+                return jsonify({
+                    'status': 'success', 
+                    'message': 'Open Food Facts API에서 상품 정보를 성공적으로 조회했습니다', 
+                    'data': saved_product
+                }), 200
+        
+        # 2-2. FOOD_QR API 조회
         product_info = get_product_info_from_food_qr(barcode)
         if product_info and 'error' not in product_info:
-            return jsonify({'status': 'success', 'message': 'FOOD_QR API에서 상품 정보를 성공적으로 조회했습니다', 'data': product_info}), 200
-        if product_info and 'error' in product_info:
-            print(f"FOOD_QR API Error: {product_info['error']}")
-
-        # 3. 식품안전나라 API 조회
+            print(f"[LOOKUP] ✅ FOOD_QR HIT: {barcode}")
+            # DB에 저장하고 반환
+            saved_product = save_product_to_db(barcode, product_info)
+            if saved_product:
+                return jsonify({
+                    'status': 'success', 
+                    'message': 'FOOD_QR API에서 상품 정보를 성공적으로 조회했습니다', 
+                    'data': saved_product
+                }), 200
+        
+        # 2-3. 식품안전나라 API 조회 (일일 500회 제한)
         product_info = get_product_info_from_food_safety_korea(barcode)
         if product_info and 'error' not in product_info:
-            return jsonify({'status': 'success', 'message': '식품안전나라 API에서 상품 정보를 성공적으로 조회했습니다', 'data': product_info}), 200
-        if product_info and 'error' in product_info:
-            print(f"Food Safety Korea API Error: {product_info['error']}")
+            print(f"[LOOKUP] ✅ 식품안전나라 HIT: {barcode}")
+            # DB에 저장하고 반환
+            saved_product = save_product_to_db(barcode, product_info)
+            if saved_product:
+                return jsonify({
+                    'status': 'success', 
+                    'message': '식품안전나라 API에서 상품 정보를 성공적으로 조회했습니다', 
+                    'data': saved_product
+                }), 200
 
         # 모든 API에서 제품을 찾지 못했을 경우
-        return jsonify({'status': 'not_found', 'message': '모든 API에서 해당 바코드의 상품 정보를 찾을 수 없습니다.'}), 404
+        print(f"[LOOKUP] ❌ 모든 API에서 NOT FOUND: {barcode}")
+        return jsonify({
+            'status': 'not_found', 
+            'message': '모든 API에서 해당 바코드의 상품 정보를 찾을 수 없습니다.'
+        }), 404
 
     except Exception as e:
-        print(f"Error in /lookup_barcode: {e}")
+        print(f"[LOOKUP] Error in /lookup_barcode: {e}")
         return jsonify({
             'status': 'error',
             'message': '서버 내부 오류가 발생했습니다.'
