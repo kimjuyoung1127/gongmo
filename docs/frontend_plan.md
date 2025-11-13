@@ -14,6 +14,9 @@
     - [x] `npx expo install @react-navigation/native @react-navigation/bottom-tabs react-native-screens react-native-safe-area-context`
 - [x] **일반 라이브러리 설치:** `npm` 또는 `yarn`을 사용하여 나머지 라이브러리를 설치합니다.
     - [x] `npm install zustand @supabase/supabase-js axios`
+- [x] **개발 클라이언트(Development Client) 설정:** 네이티브 라이브러리 사용을 위해 개발용 앱을 빌드하고 설정합니다.
+    - [x] `eas login` 및 `eas build:configure`를 통해 EAS 설정 완료
+    - [x] `eas build` 명령으로 개발용 앱(APK) 빌드 및 설치 완료
 - [x] **Expo Router 기반 파일 구조 생성:**
     - [x] `app/(tabs)/` 디렉토리 생성
     - [x] `app/(tabs)/_layout.tsx` 파일 생성 (하단 탭 네비게이터 설정)
@@ -21,7 +24,7 @@
     - [x] `app/(tabs)/scan.tsx` 파일 생성 ('스캔' 탭 화면)
     - [x] `app/(tabs)/settings.tsx` 파일 생성 ('설정' 탭 화면)
     - [x] `app/_layout.tsx` 파일 생성 (최상위 레이아웃 설정)
-- [ ] **카메라 권한 설정:** `react-native-vision-camera` 사용을 위한 권한 요청 로직 추가 (Expo가 대부분의 네이티브 설정을 자동 처리)
+- [x] **카메라 권한 설정:** `react-native-vision-camera` 사용을 위한 권한 요청 로직 추가 (`scan.tsx`에 구현 완료)
 
 ---
 
@@ -29,10 +32,11 @@
 
 가장 빠르고 정확하게 상품을 등록하는 핵심 경험입니다.
 
-- [ ] **'스캔' 화면 UI 및 카메라 설정:** `app/(tabs)/scan.tsx` 파일에서 `react-native-vision-camera`의 `<Camera>` 컴포넌트를 사용하여 전체 화면 카메라 뷰 렌더링
-- [ ] **바코드 인식 로직:** `useCodeScanner` 훅을 사용하여 바코드를 실시간으로 감지하고, 인식 시 진동 피드백 구현
-- [ ] **API 연동:** 인식된 바코드 값으로 백엔드의 `/lookup_barcode` API 호출 (로딩 인디케이터 표시)
-- [ ] **결과 표시 및 재고 추가:** API로부터 받은 상품명/카테고리 정보를 Bottom Sheet 형태로 표시하고, 유통기한 입력 후 '재고에 추가' 버튼 구현
+- [x] **'스캔' 화면 UI 및 카메라 설정:** `app/(tabs)/scan.tsx` 파일에서 `react-native-vision-camera`의 `<Camera>` 컴포넌트를 사용하여 전체 화면 카메라 뷰 렌더링 (기본 렌더링 완료)
+- [x] **바코드 인식 로직:** `useCodeScanner` 훅을 사용하여 바코드를 실시간으로 감지하고, 인식 시 진동 피드백 구현
+- [x] **API 연동:** 인식된 바코드 값으로 백엔드의 `/lookup_barcode` API 호출 (로딩 인디케이터 표시)
+- [x] **결과 표시:** API로부터 받은 상품명/카테고리 정보를 Modal 형태로 표시
+- [x] **재고 추가:** 결과 팝업에서 유통기한 입력 후 '재고에 추가' 버튼을 누르면 Supabase DB에 저장하는 로직 구현
 
 ---
 

@@ -8,7 +8,7 @@ from paddleocr import PaddleOCR
 from utils.expiry_logic import process_receipt_image
 from supabase import create_client, Client
 # 바코드 조회 유틸리티 함수 임포트
-from utils.barcode_lookup import get_product_info_from_food_safety_korea, get_product_info_from_open_food_facts
+from utils.barcode_lookup import get_product_info_from_food_safety_korea, get_product_info_from_open_food_facts, get_product_info_from_food_qr
 
 # .env 파일에서 환경 변수 로드
 load_dotenv()
@@ -19,7 +19,7 @@ CORS(app)  # 모든 라우트에 대해 CORS 활성화
 # PaddleOCR 초기화 (앱 시작 시 한 번만)
 # lang='korean'으로 한국어 모델 로드
 # use_gpu=False로 CPU 사용 (GPU 사용 시 use_gpu=True 설정 및 관련 드라이버 필요)
-ocr = PaddleOCR(lang='korean', use_gpu=False)
+ocr = PaddleOCR(lang='korean')
 
 # Supabase 클라이언트 초기화
 supabase_url = os.environ.get('SUPABASE_URL')
@@ -114,7 +114,7 @@ def upload_receipt():
 def lookup_barcode():
     """
     바코드 번호를 받아 외부 API를 통해 상품 정보를 조회하는 API 엔드포인트입니다.
-    하이브리드 전략: 1. 식품안전나라 API -> 2. Open Food Facts API
+    하이브리드 전략: 1. Open Food Facts -> 2. FOOD_QR -> 3. 식품안전나라
     """
     try:
         data = request.get_json()
@@ -123,39 +123,29 @@ def lookup_barcode():
         if not barcode:
             return jsonify({'status': 'error', 'message': '바코드 번호가 제공되지 않았습니다'}), 400
 
-        # 1. 식품안전나라 API 조회
-        product_info = get_product_info_from_food_safety_korea(barcode)
-
-        # 성공적으로 찾았을 경우
+        # 1. Open Food Facts API 먼저 조회
+        product_info = get_product_info_from_open_food_facts(barcode)
         if product_info and 'error' not in product_info:
-            return jsonify({
-                'status': 'success',
-                'message': '식품안전나라 API에서 상품 정보를 성공적으로 조회했습니다',
-                'data': product_info
-            }), 200
-        
-        # API 자체에 오류가 발생했을 경우
+            return jsonify({'status': 'success', 'message': 'Open Food Facts API에서 상품 정보를 성공적으로 조회했습니다', 'data': product_info}), 200
         if product_info and 'error' in product_info:
-            # Open Food Facts를 시도하기 전에 오류를 로깅하거나 처리할 수 있음
+            print(f"Open Food Facts API Error: {product_info['error']}")
+
+        # 2. FOOD_QR API 조회
+        product_info = get_product_info_from_food_qr(barcode)
+        if product_info and 'error' not in product_info:
+            return jsonify({'status': 'success', 'message': 'FOOD_QR API에서 상품 정보를 성공적으로 조회했습니다', 'data': product_info}), 200
+        if product_info and 'error' in product_info:
+            print(f"FOOD_QR API Error: {product_info['error']}")
+
+        # 3. 식품안전나라 API 조회
+        product_info = get_product_info_from_food_safety_korea(barcode)
+        if product_info and 'error' not in product_info:
+            return jsonify({'status': 'success', 'message': '식품안전나라 API에서 상품 정보를 성공적으로 조회했습니다', 'data': product_info}), 200
+        if product_info and 'error' in product_info:
             print(f"Food Safety Korea API Error: {product_info['error']}")
 
-        # 2. Open Food Facts API 조회 (식품안전나라에서 못 찾았거나 API 오류 시)
-        product_info_off = get_product_info_from_open_food_facts(barcode)
-
-        # 성공적으로 찾았을 경우
-        if product_info_off and 'error' not in product_info_off:
-            return jsonify({
-                'status': 'success',
-                'message': 'Open Food Facts API에서 상품 정보를 성공적으로 조회했습니다',
-                'data': product_info_off
-            }), 200
-
-        # 두 API 모두에서 제품을 찾지 못했을 경우
-        if product_info is None and product_info_off is None:
-             return jsonify({'status': 'not_found', 'message': '두 API 모두에서 해당 바코드의 상품 정보를 찾을 수 없습니다.'}), 404
-
-        # 최종적으로 API 오류가 있었음을 알림
-        return jsonify({'status': 'error', 'message': '외부 바코드 조회 서비스에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.'}), 503
+        # 모든 API에서 제품을 찾지 못했을 경우
+        return jsonify({'status': 'not_found', 'message': '모든 API에서 해당 바코드의 상품 정보를 찾을 수 없습니다.'}), 404
 
     except Exception as e:
         print(f"Error in /lookup_barcode: {e}")

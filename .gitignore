@@ -1,0 +1,28 @@
+# Git Ignore for Scanner Project
+
+# Backend
+backend/.env
+backend/node_modules/
+backend/__pycache__/
+backend/.venv/
+backend/data/model.pkl
+backend/data/vectorizer.pkl
+backend/mlruns/ # MLflow tracking data
+
+# Frontend (Expo React Native)
+app/node_modules/
+app/.expo/
+app/web-build/
+app/dist/
+app/android/ # Local Android build files (if prebuilt)
+app/ios/     # Local iOS build files (if prebuilt)
+app/.env # Frontend .env file
+
+# General
+*.log
+*.apk
+*.aab
+*.ipa
+.DS_Store
+.env
+.vscode/
