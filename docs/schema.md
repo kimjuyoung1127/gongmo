@@ -10,7 +10,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ===== 2. PUBLIC TABLES (AI의 '뇌' - 공용 데이터) =====
--- (categories, expiry_rules 테이블은 제공된 내용과 동일하게 생성합니다)
 
 -- 🗂️ ① Category Master
 CREATE TABLE public.categories (
@@ -43,7 +42,6 @@ FOR SELECT USING (true);
 
 
 -- ===== 3. USER-PRIVATE TABLES (사용자 '개인' 데이터) =====
--- (receipts, receipt_items 테이블은 제공된 내용과 동일하게 생성합니다)
 
 -- 🧾 ③ Receipts
 CREATE TABLE public.receipts (
@@ -81,7 +79,7 @@ WITH CHECK (auth.uid() = user_id);
 
 
 -- 🥑 ⑤ Inventory (사용자의 '실제 냉장고 재고')
--- [바코드 기능이 추가된 테이블]
+-- [✨ quantity 컬럼 추가됨 ✨]
 CREATE TABLE public.inventory (
     id BIGSERIAL PRIMARY KEY,
     created_at TIMESTAMPTZ DEFAULT now(),
@@ -96,12 +94,16 @@ CREATE TABLE public.inventory (
     -- [연결] 이 재고의 카테고리 (categories.id 참조)
     category_id BIGINT REFERENCES public.categories(id),
     
-    -- ✨ [바코드 추가] ✨
+    -- [바코드 추가]
     -- 바코드(GTIN) 값. 바코드 스캔으로 등록 시 여기에 저장
     barcode TEXT,
     
     -- 앱에 표시될 이름 (예: '서울우유 1L')
     name TEXT NOT NULL, 
+    
+    -- ✨ [수량 추가] ✨
+    -- 재고 수량 (기본값 1)
+    quantity INTEGER NOT NULL DEFAULT 1,
     
     purchase_date DATE NOT NULL DEFAULT CURRENT_DATE,
     
@@ -132,14 +134,17 @@ EXECUTE FUNCTION public.handle_updated_at();
 CREATE INDEX IF NOT EXISTS idx_inventory_expiry_date ON public.inventory(expiry_date);
 CREATE INDEX IF NOT EXISTS idx_inventory_status ON public.inventory(status);
 CREATE INDEX IF NOT EXISTS idx_inventory_user_id ON public.inventory(user_id);
--- ✨ [바코드 인덱스 추가] ✨
+-- [바코드 인덱스 추가]
 CREATE INDEX IF NOT EXISTS idx_inventory_barcode ON public.inventory(barcode);
 
 
 -- ===== 4. APP VIEW (앱을 위한 '바로가기 뷰') =====
--- (upcoming_expirations 뷰는 제공된 내용과 동일하게 생성합니다)
 
-CREATE OR REPLACE VIEW public.upcoming_expirations AS
+-- (기존 뷰 삭제 후 재생성 - 컬럼 추가 오류 방지)
+DROP VIEW IF EXISTS public.upcoming_expirations;
+
+-- [✨ quantity 컬럼 추가됨 ✨]
+CREATE VIEW public.upcoming_expirations AS
 SELECT
     id,
     user_id,
@@ -148,6 +153,7 @@ SELECT
     expiry_date,
     purchase_date,
     status,
+    quantity, -- ✨[수량 추가됨]✨
     (expiry_date - CURRENT_DATE) AS days_remaining
 FROM
     public.inventory

@@ -6,10 +6,12 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "app",
+    "owner": "gmdqn2tp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.gmdqn2tp.scanner",
       "infoPlist": {
         "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera"
       }
@@ -26,7 +28,21 @@
       "permissions": [
         "android.permission.CAMERA"
       ],
-      "package": "com.gmdqn2tp.scanner"
+      "package": "com.gmdqn2tp.scanner",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "scheme": "app"
+            }
+          ]
+        }
+      ]
     },
     "web": {
       "output": "static",
@@ -46,7 +62,8 @@
           }
         }
       ],
-      "react-native-vision-camera"
+      "react-native-vision-camera",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

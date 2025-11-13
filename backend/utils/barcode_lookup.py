@@ -11,19 +11,21 @@ def _load_category_map():
     categories.csv 파일을 읽어 외부 카테고리명과 내부 카테고리 ID를 매핑하는 딕셔너리를 생성하고 캐싱합니다.
     이 함수는 첫 API 호출 시 한 번만 실행됩니다.
     """
-    # TODO: 실제 매핑 규칙을 정의해야 합니다. (예: '과자' -> '과자/스낵')
-    # 이 예시에서는 간단한 매핑을 사용합니다.
     category_map = {}
     try:
-        # data 폴더에 categories.csv가 있다고 가정
-        with open('backend/data/categories.csv', mode='r', encoding='utf-8') as infile:
+        # [수정] 현재 파일의 위치를 기준으로 절대 경로 생성
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        csv_path = os.path.join(current_dir, '..', 'data', 'categories.csv')
+
+        with open(csv_path, mode='r', encoding='utf-8') as infile:
             reader = csv.DictReader(infile)
             for row in reader:
-                # 예시: category_name_kr을 키로 사용
+                # category_name_kr을 키로 사용하고, id와 name을 값으로 저장
                 category_map[row['category_name_kr']] = {
-                    "id": int(row['id']),
+                    "id": int(row['category_id']),
                     "name": row['category_name_kr']
                 }
+        print("Info: categories.csv 파일을 성공적으로 로드했습니다.")
         return category_map
     except FileNotFoundError:
         print("Warning: backend/data/categories.csv 파일을 찾을 수 없습니다. 카테고리 매핑이 비활성화됩니다.")
@@ -34,14 +36,37 @@ _category_map_cache = None
 def _map_external_category_to_internal(external_category_name: str):
     """
     외부 API에서 받은 카테고리명을 내부 카테고리 정보(id, name)로 변환합니다.
+    규칙 기반 -> 정확히 일치 -> 키워드 포함 순서로 매핑을 시도합니다.
     """
     global _category_map_cache
     if _category_map_cache is None:
         _category_map_cache = _load_category_map()
 
-    # TODO: 더 정교한 매핑 로직 필요 (예: '유가공품' -> '유제품(신선)')
-    # 지금은 이름이 정확히 일치하는 경우만 매핑
-    return _category_map_cache.get(external_category_name)
+    if not external_category_name:
+        return None
+
+    # 1. [개선] 특정 키워드에 대한 우선 매핑 규칙
+    if '면' in external_category_name or '누들' in external_category_name.lower():
+        # '건면'과 '생/냉장면' 중 '건면'을 기본으로 선택
+        return _category_map_cache.get('건면')
+    if '유' in external_category_name and ('가공' in external_category_name or '음료' in external_category_name):
+        return _category_map_cache.get('유제품(신선)')
+    if '과자' in external_category_name or '스낵' in external_category_name:
+        return _category_map_cache.get('과자/스낵')
+
+    # 2. 정확히 일치하는 이름 검색
+    exact_match = _category_map_cache.get(external_category_name)
+    if exact_match:
+        return exact_match
+
+    # 3. 키워드 포함 매핑
+    for internal_name, category_info in _category_map_cache.items():
+        main_keyword = internal_name.split('(')[0]
+        if main_keyword in external_category_name:
+            return category_info
+            
+    # 4. 모든 매핑 실패 시 None 반환
+    return None
 
 
 # --- 2. 외부 API 호출 함수들 ---
@@ -49,35 +74,52 @@ def _map_external_category_to_internal(external_category_name: str):
 def get_product_info_from_food_safety_korea(barcode: str):
     """
     식품안전나라 API를 통해 바코드 정보를 조회합니다.
-    성공 시: {'name': ..., 'category_id': ..., 'category_name_kr': ...}
-    실패 시: None (제품 없음) 또는 {'error': '...'} (API 오류)
     """
+    print(f"--- [백엔드] 1. 식품안전나라 API 호출됨. (바코드: {barcode}) ---")
+
     try:
         api_key = os.environ.get('FOOD_SAFETY_KOREA_API_KEY')
-        if not api_key:
-            return {"error": "api_key_missing"}
 
-        url = f"http://openapi.foodsafetykorea.go.kr/api/{api_key}/C005/json/1/5/BAR_CD={barcode}"
-        
+        if not api_key:
+            print("[백엔드] 오류: .env 파일에서 FOOD_SAFETY_KOREA_API_KEY를 찾을 수 없습니다!")
+            return None
+
+        print(f"[백엔드] 2. API 키 확인됨 (일부): {api_key[:5]}...")
+
+        service_id = "C005"
+        data_type = "json"
+        start_idx = "1"
+        end_idx = "5"
+
+        url = f"http://openapi.foodsafetykorea.go.kr/api/{api_key}/{service_id}/{data_type}/{start_idx}/{end_idx}/BAR_CD={barcode}"
+
+        print(f"[백엔드] 3. 요청할 URL: {url}")
+
         response = requests.get(url, timeout=5)
-        response.raise_for_status() # 4xx, 5xx 오류 시 예외 발생
+        response.raise_for_status()
         
         data = response.json()
 
-        if 'C005' not in data or data['C005']['total_count'] == '0':
-            return None # 제품 정보 없음
+        print(f"[백엔드] 4. API 응답 (Raw): {data}")
+
+        if 'C005' not in data or 'row' not in data['C005'] or data['C005']['total_count'] == '0':
+            print("[백엔드] 5. API가 '결과 없음'을 반환함.")
+            return None
 
         product_data = data['C005']['row'][0]
-        product_name = product_data.get('PRDT_NM')
-        external_category = product_data.get('PRDLST_NM')
+        product_name = product_data.get('PRDLST_NM')
+        external_category = product_data.get('PRDLST_DCNM')
 
         if not product_name or not external_category:
+            print("[백엔드] 5a. 제품명 또는 카테고리명이 응답에 없음.")
             return None
 
         category_info = _map_external_category_to_internal(external_category)
         if not category_info:
-            # TODO: 매핑 실패 시 기본 카테고리 할당 또는 다른 처리 필요
+            print(f"[백엔드] 5b. 카테고리 매핑 실패: '{external_category}'를 내부 카테고리로 변환할 수 없음.")
             return None 
+
+        print("[백엔드] 6. 성공: 제품 정보를 찾고 매핑했습니다.")
 
         return {
             "name": product_name,
@@ -87,10 +129,10 @@ def get_product_info_from_food_safety_korea(barcode: str):
         }
 
     except RequestException as e:
-        print(f"Food Safety Korea API Error: {e}")
+        print(f"[백엔드] 심각한 오류: API 요청 실패! {e}")
         return {"error": "api_failed"}
     except Exception as e:
-        print(f"Barcode lookup logic error (Food Safety Korea): {e}")
+        print(f"[백엔드] 심각한 오류: 데이터 파싱 실패! {e}")
         return {"error": "internal_error"}
 
 
@@ -106,8 +148,6 @@ def get_product_info_from_open_food_facts(barcode: str):
             return None
 
         product_name = product.get('product_name')
-        # Open Food Facts는 카테고리가 리스트일 수 있고, 계층 구조를 가짐
-        # 예: "en:dairies, en:milks" -> 가장 구체적인 카테고리를 사용하거나, 키워드 매핑 필요
         external_category = product.get('categories', '').split(',')[-1].strip()
 
         if not product_name or not external_category:
@@ -126,3 +166,49 @@ def get_product_info_from_open_food_facts(barcode: str):
     except Exception as e:
         print(f"Open Food Facts API Error: {e}")
         return {"error": "api_failed"}
+
+def get_product_info_from_food_qr(barcode: str):
+    """
+    FOOD_QR API를 통해 바코드 정보를 조회합니다.
+    """
+    try:
+        api_key = os.environ.get('FOOD_QR_API_KEY')
+        if not api_key:
+            return {"error": "api_key_missing"}
+
+        url = f"https://foodqr.kr/openapi/service/qr1003/F003?accessKey={api_key}&_type=json&brcdNo={barcode}"
+        
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
+        
+        data = response.json()
+
+        if 'totalCount' not in data or data['totalCount'] == 0:
+            return None
+
+        product_data = data['items'][0]
+        product_name = product_data.get('prdctNm')
+        external_category = product_data.get('buesNm', '기타') 
+
+        if not product_name:
+            return None
+
+        category_info = _map_external_category_to_internal(external_category)
+        if not category_info:
+            category_info = _map_external_category_to_internal('기타')
+            if not category_info:
+                 return None
+
+        return {
+            "name": product_name,
+            "category_id": category_info["id"],
+            "category_name_kr": category_info["name"],
+            "source": "food_qr"
+        }
+
+    except RequestException as e:
+        print(f"FOOD_QR API Error: {e}")
+        return {"error": "api_failed"}
+    except Exception as e:
+        print(f"Barcode lookup logic error (FOOD_QR): {e}")
+        return {"error": "internal_error"}
