@@ -26,7 +26,12 @@ CORS(app)  # 모든 라우트에 대해 CORS 활성화
 # PaddleOCR 초기화 (앱 시작 시 한 번만)
 # lang='korean'으로 한국어 모델 로드
 # use_gpu=False로 CPU 사용 (GPU 사용 시 use_gpu=True 설정 및 관련 드라이버 필요)
-ocr = PaddleOCR(lang='korean')
+ocr = PaddleOCR(lang='korean',
+    use_doc_preprocessor=False,
+    use_doc_orientation_classify=False,
+    use_doc_unwarping=False,
+    use_textline_orientation=False
+)
 
 # Supabase 클라이언트 초기화
 supabase_url = os.environ.get('SUPABASE_URL')
@@ -64,6 +69,10 @@ def upload_receipt():
         try:
             # 영수증 이미지 처리 (PaddleOCR 인스턴스 전달)
             model_path = os.environ.get('MODEL_PATH', 'data/model.pkl')
+            
+            # PaddleOCR 설치 확인
+            if not ocr:
+                raise Exception("PaddleOCR이 초기화되지 않았습니다")
             
             processed_items = process_receipt_image(
                 temp_image_path,
