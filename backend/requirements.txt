@@ -1,17 +1,21 @@
 Flask==2.3.3
 Flask-CORS==4.0.0
 requests==2.31.0
-numpy==1.24.3
+python-dotenv==1.0.0
+gunicorn==21.2.0            # (Windows 개발용이면 사용 안 함)
+
+numpy==1.26.4               # ★ 핵심: 1.x 유지
 pandas==2.0.3
 scikit-learn==1.3.0
-gunicorn==21.2.0
-psycopg2-binary==2.9.7
-python-dotenv==1.0.0
-opencv-python==4.8.1.78
-supabase==1.0.4
+
+opencv-python==4.8.1.78     # ★ headless, contrib 동시 설치 금지
 Pillow==10.0.1
 
-# New Libraries for v2 Architecture
-paddleocr
+psycopg2-binary==2.9.7
+supabase==1.0.4
+
+paddlepaddle==2.6.2         # ★ 2.x 라인 통일
+paddleocr==2.7.3
+
 openfoodfacts
 mlflow

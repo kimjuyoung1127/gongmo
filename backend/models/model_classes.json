@@ -1,0 +1,56 @@
+{
+  "best_model": "LogisticRegression",
+  "preprocessing_method": "korean_noun_extraction (Okt)",
+  "classes": [
+    "BAKERY_CREAM_SANDWICH",
+    "BERRIES",
+    "BEVERAGE_REFRIGERATED",
+    "BEVERAGE_SHELF_STABLE",
+    "BREAD_GENERAL",
+    "CANNED_DRY_GOODS",
+    "CITRUS",
+    "DAIRY_FRESH",
+    "DAIRY_PROCESSED",
+    "DRIED_NOODLES",
+    "DRY_SEAWEED",
+    "EGGS",
+    "ETC",
+    "FISH_FRESH",
+    "FRESH_NOODLES",
+    "FRESH_SEAWEED",
+    "FROZEN_FOOD",
+    "FRUIT_GENERAL",
+    "FRUIT_VEGETABLES",
+    "GRAINS_RICE",
+    "HARD_CHEESE",
+    "LEAFY_VEGETABLES",
+    "MEAT_FRESH",
+    "MEAT_PROCESSED",
+    "MOLLUSCS_CRUSTACEANS",
+    "MUSHROOMS",
+    "PICKLED_VEGETABLES",
+    "READY_MEALS_FROZEN",
+    "READY_MEALS_REFRIGERATED",
+    "ROOT_VEGETABLES",
+    "SAUCES_SEASONINGS",
+    "SHELLFISH",
+    "SNACKS",
+    "SOFT_CHEESE",
+    "SPROUTS",
+    "STEM_VEGETABLES",
+    "TROPICAL_FRUIT"
+  ],
+  "hyperparameter_tuning": {
+    "best_params": {
+      "C": 50
+    },
+    "best_cv_score": 0.7436363636363637
+  },
+  "performance": {
+    "test_accuracy": 0.6159420289855072
+  },
+  "dataset_info": {
+    "dataset_file": "food_dataset_v4_clean.csv",
+    "total_samples": 1376
+  }
+}
