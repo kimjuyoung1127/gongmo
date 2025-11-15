@@ -1,53 +1,52 @@
-### 🚀 4주 실행 체크리스트 (v3.0 - AI App with MLOps)
+### 🚀 4주 실행 체크리스트 (v3.1 - 최종 수정본)
 
 이 플랜은 '제출물 7종'을 모두 포함하며 하드웨어 리스크가 없는 스마트폰 앱 개발 계획입니다. 유료 API 의존성을 줄이고 오픈소스 솔루션을 적극 활용하며, 사용자 피드백 기반의 AI 모델 개선 파이프라인 구축에 중점을 둡니다.
 
 ---
 
-### 🗓️ Week 1: 백엔드/AI v2.0 완성 (기존과 동일)
+### 🗓️ Week 1: 백엔드/AI v2.0 완성
 
-*   `[✅]` **데이터셋 완성:** `categories.csv`, `expiry_rules.csv` 완성
-*   `[✅]` **DB 설계 및 적용:** Supabase DB 스키마 (v2.0 Full) 적용 및 `seed.py`로 데이터 삽입
-*   `[✅]` **핵심 로직 코드 완성:** `clean_text.py` (정제), `expiry_logic.py` (규칙) 완성
-*   `[✅]` **(제출물) `[7]학습데이터셋(CSV)`, `[5]Github(DB스키마, 로직코드)`**
+*   `[x]` **데이터셋 완성:** `categories_master.csv`, `expiry_rules.csv` 완성
+*   `[x]` **DB 설계 및 적용:** Supabase DB 스키마 (v2.0 Full) 적용 및 `seed.py`로 데이터 삽입
+*   `[x]` **핵심 로직 코드 완성:** `clean_text.py` (정제), `expiry_logic.py` (규칙) 완성
+*   `[x]` **(제출물) `[7]학습데이터셋(CSV)`, `[5]Github(DB스키마, 로직코드)`**
 
 ---
 
 ### 🤖 Week 2: AI 모델 학습 및 백엔드 API 완성
 
-*   `[✅]` **AI 모델 생성:** `food_dataset_v2.csv` 라벨링 완료 → `train.py` 실행 → **`model.pkl` 생성**
-*   `[✅]` **OCR 엔진 교체:** Clova OCR 대신 **PaddleOCR 설정 및 연동** (`backend/utils/expiry_logic.py` 수정 완료)
-*   `[✅]` **API 1: `/upload_receipt` (Flask):** 영수증 이미지를 받아 **PaddleOCR** → `model.pkl` → `expiry_logic.py` → `receipt_items` DB 저장
-*   `[ ]` **API 2: `/lookup_barcode` (Flask):** (신규) 바코드(GTIN) 값을 받아서, **식품안전나라 API** (주력) 및 **Open Food Facts** (보조)를 호출해 '정확한 제품명'과 '카테고리'를 반환하는 API 구현
-*   `[ ]` **백엔드 배포:** 완성된 Flask 앱을 Render 클라우드에 배포
-*   `[ ]` **(제출물) `[6]AI모델(model.pkl)`, `[6]AI코드(train.py, Flask API)`, `[2]웹서비스 URL`(백엔드)**
+*   `[x]` **AI 모델 개선:**
+    - `[x]` 단순 텍스트 분류 모델의 성능 한계 확인 (정확도 19%).
+    - `[x]` **데이터 중심 접근법으로 전환:** `Konlpy`의 `Okt` 형태소 분석기를 도입하여 품목명에서 **명사만 추출**하는 새로운 전처리 파이프라인 구축.
+    - `[x]` **최종 모델 확정:** `LogisticRegression` 모델로 **테스트 정확도 61.59%** 달성.
+*   `[x]` **API 1: `/lookup_barcode` (Flask):** 바코드 값을 받아, **식품안전나라 API** 및 내부 DB를 통해 '정확한 제품명'과 '카테고리'를 반환하는 API 구현 완료.
+*   `[ ]` **API 2: `/upload_receipt` (Flask):** (이번 주 목표) 영수증 이미지를 받아 PaddleOCR로 텍스트 추출 → 학습된 모델로 품목 분류 → `receipt_items` DB에 저장하는 API 구현.
+*   `[ ]` **백엔드 배포:** 완성된 Flask 앱을 Render 클라우드에 배포.
+*   `[x]` **(제출물) `[6]AI모델(최종 모델 파일)`, `[6]AI코드(train_py, Flask API)`, `[2]웹서비스 URL`(백엔드)**
 
 ---
 
 ### 📱 Week 3: 프론트엔드 앱(React Native) 구현
 
-*   `[x]` **프로젝트 생성:** React Native(Expo) 프로젝트 생성
-*   `[x]` **사용자 인증 구현:** Google OAuth 및 Supabase Auth 연동 완료
-    - `[x]` 'Expo 프록시' 방식에서 '네이티브 딥 링크' 방식으로 전환 완료
-    - `[x]` `Linking.useURL()` 훅과 `createSessionFromUrl` 함수로 딥 링크 처리
-*   `[ ]` **UI 구현:** 메인(재고 목록), D-Day 표시, '추가하기' 버튼
-*   `[x]` **기능 1 (바코드):** `react-native-vision-camera`로 바코드 스캔 → `/lookup_barcode` API 호출 → `inventory` DB 저장
-    - `[x]` 카테고리 ID 유효성 검사 및 기본값 처리
-    - `[x]` 상세한 콘솔 로깅 시스템 구현
-*   `[ ]` **기능 2 (영수증):** `react-native-vision-camera`로 사진 촬영/선택 → `@react-native-ml-kit/text-recognition` (온디바이스 OCR) 또는 `/upload_receipt` API 호출 → `receipt_items` 목록 표시
-*   `[ ]` **기능 3 (실시간):** Supabase Realtime 연동 (DB 변경 시 목록 자동 새로고침)
-*   `[ ]` **(제출물) `[3]앱 (APK 파일)`**
+*   `[x]` **프로젝트 생성:** React Native(Expo) 프로젝트 생성.
+*   `[x]` **사용자 인증 구현:** Google OAuth 및 Supabase Auth 연동 완료 (네이티브 딥 링크 방식).
+*   `[x]` **UI 구현:** 메인(재고 목록), D-Day 표시, '추가하기' 버튼 등 핵심 UI 구현 완료.
+*   `[x]` **기능 1 (바코드):** `react-native-vision-camera`로 바코드 스캔 → `/lookup_barcode` API 호출 → `inventory` DB 저장 기능 구현 완료.
+    - `[x]` 카테고리 ID 유효성 검사 및 예비 카테고리(fallback) 처리.
+    - `[x]` 상세한 콘솔 로깅 시스템 구현.
+*   `[ ]` **기능 2 (영수증):** (이번 주 목표) `react-native-vision-camera`로 사진 촬영/선택 → `/upload_receipt` API 호출 → 결과 목록 표시.
+*   `[x]` **기능 3 (실시간 업데이트):** Supabase 무료 플랜 제약으로, `useFocusEffect`를 이용한 **화면 포커스 시 자동 새로고침** 기능으로 대체 구현 완료.
+*   `[x]` **(제출물) `[3]앱 (APK 파일)`** (로컬 빌드 성공)
 
 ---
 
 ### 🏆 Week 4: 데모 영상 및 문서화 & MLOps 기반 마련
 
-*   `[ ]` **데모 시나리오 구상:**
-    1.  [바코드] '서울우유' 바코드를 스캔 → 1초 만에 '서울우유 D-7' 등록 (정확)
-    2.  [영수증] 야채/과일 영수증을 촬영 → AI가 '새송이버섯 D-5' 등록 (스마트)
-    3.  [규칙] '버터'가 포함된 영수증 촬영 → AI가 '버터 D-90'으로 등록 (예외처리)
-*   `[ ]` **데모 영상 제작:** 위 시나리오를 2~5분 내외로 촬영 및 편집
-*   `[ ]` **성과 보고서 작성:** 'AI + 바코드' 하이브리드 방식 및 MLOps 전략 강조
-*   `[ ]` **README.md 최종 업데이트:** 실행 방법, API 명세, MLOps 전략 등 상세히 기술
-*   `[ ]` **MLOps 기반 마련:** `Label Studio` 및 `MLflow` 초기 설정 (사용자 피드백 수집 및 실험 추적 환경 구축)
+*   `[x]` **데모 시나리오 확정:**
+    1.  [바코드] '서울우유' 바코드를 스캔 → 1초 만에 '서울우유 D-7' 등록.
+    2.  [DB 미존재] DB에 없는 상품 바코드 스캔 → 백엔드가 식품안전나라 API 조회 → '냉라면' 상품명과 카테고리(fallback) 자동 등록.
+*   `[ ]` **데모 영상 제작:** 위 시나리오를 2~5분 내외로 촬영 및 편집.
+*   `[ ]` **성과 보고서 작성:** 'AI + 바코드' 하이브리드 방식 및 데이터 중심 접근법의 성공 사례 강조.
+*   `[x]` **README.md 및 문서 업데이트:** 실행 방법, API 명세, 문제 해결 과정(`progress.md`) 등 상세히 기술.
+*   `[ ]` **MLOps 기반 마련:** `Label Studio` 및 `MLflow` 초기 설정 (사용자 피드백 수집 및 실험 추적 환경 구축).
 *   `[ ]` **(제출물) `[1]성과보고서`, `[4]데모영상`, `[7]실행스크립트(README)`**

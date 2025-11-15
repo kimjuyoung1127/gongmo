@@ -1,18 +1,19 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback, useLayoutEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Button } from 'react-native';
 import { supabase } from '../../lib/supabase';
-import { loadActiveInventory, updateInventoryStatus, subscribeToInventoryChanges, InventoryItem } from '../../lib/supabase';
+import { useFocusEffect, useNavigation } from '@react-navigation/native'; // useFocusEffect, useNavigation 임포트
+import { loadActiveInventory, updateInventoryStatus, InventoryItem } from '../../lib/supabase';
 import InventoryCard from '../../components/InventoryCard';
 import { calculateDdayStable } from '../../lib/utils';
 
 type StatusFilter = 'active' | 'expiring';
 
 export default function InventoryScreen() {
-  // useState 호출 순서 유지
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
   const [userId, setUserId] = useState<string | null>(null);
+  const navigation = useNavigation();
 
   // 사용자 ID 가져오기
   useEffect(() => {
@@ -25,44 +26,37 @@ export default function InventoryScreen() {
     getUser();
   }, []);
 
-  // 초기 데이터 로드
-  useEffect(() => {
+  // 데이터 로드 함수 (useCallback으로 감싸서 불필요한 재생성 방지)
+  const loadInventory = useCallback(async () => {
     if (!userId) return;
-    
-    const loadInventory = async () => {
-      try {
-        setLoading(true);
-        const data = await loadActiveInventory(userId);
-        setInventory(data);
-      } catch (error) {
-        console.error('재고 목록 로드 실패:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const setupRealtime = async () => {
-      try {
-        const subscription = await subscribeToInventoryChanges(userId, () => {
-          console.log('실시간 변경 감지 - 데이터 새로고침');
-          loadInventory();
-        });
-        
-        return () => {
-          supabase.removeChannel(subscription);
-        };
-      } catch (error) {
-        console.error('Realtime 구독 실패:', error);
-        // 5초마다 폴링으로 대체
-        const interval = setInterval(loadInventory, 5000);
-        return () => clearInterval(interval);
-      }
-    };
-
-    // 데이터 로드 후 Realtime 구독 설정
-    loadInventory();
-    setupRealtime();
+    try {
+      setLoading(true);
+      const data = await loadActiveInventory(userId);
+      setInventory(data);
+    } catch (error) {
+      console.error('재고 목록 로드 실패:', error);
+    } finally {
+      setLoading(false);
+    }
   }, [userId]);
+
+  // 화면이 포커스될 때마다 데이터 로드
+  useFocusEffect(
+    useCallback(() => {
+      loadInventory();
+    }, [loadInventory]) // loadInventory 함수가 변경될 때만 useFocusEffect를 다시 실행
+  );
+
+  // 헤더에 새로고침 버튼 추가
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity onPress={loadInventory} style={{ marginRight: 15 }}>
+          <Text style={{ color: '#007AFF', fontSize: 16 }}>새로고침</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, loadInventory]);
 
   // 필터링된 재고 목록
   const filteredInventory = useMemo(() => {
@@ -88,7 +82,7 @@ export default function InventoryScreen() {
   const handleConsume = async (itemId: number) => {
     try {
       await updateInventoryStatus(itemId, 'consumed');
-      // Realtime 구독에서 자동으로 목록 업데이트됨
+      loadInventory(); // 상태 변경 후 목록 새로고침
     } catch (error) {
       console.error('소비 처리 실패:', error);
     }
@@ -97,7 +91,7 @@ export default function InventoryScreen() {
   const handleDiscard = async (itemId: number) => {
     try {
       await updateInventoryStatus(itemId, 'expired');
-      // Realtime 구독에서 자동으로 목록 업데이트됨
+      loadInventory(); // 상태 변경 후 목록 새로고침
     } catch (error) {
       console.error('폐기 처리 실패:', error);
     }
