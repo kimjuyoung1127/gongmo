@@ -33,22 +33,88 @@
 
 ```
 scanner-project/
-├── app/                  # ✅ 프론트엔드 (Expo React Native)
-├── backend/              # ✅ AI 모델, 비즈니스 로직, API 서버 (Python, Flask)
-├── docs/                 # ✅ 프로젝트 계획, 데이터 모델, MLOps 보고서 등 문서
-├── frontend/             # ⚠️ (보관됨) 구 버전의 React 웹 프론트엔드
-└── README.md             # 👈 현재 문서
+├── app/                              # ✅ 프론트엔드 (Expo React Native)
+│   ├── app/(tabs)/                   # 메인 탭 화면
+│   │   ├── scan.tsx                 # ⚠️ 리팩토링 중 (구조: 아래 components/scan/ 참고)
+│   │   ├── index.tsx                # 재고 목록 화면
+│   │   └── settings.tsx             # 설정 화면
+│   ├── components/
+│   │   ├── scan/                    # 🆕 스캔 컴포넌트 모듈 (2025-11-15)
+│   │   │   ├── ScanUtils.ts         # 유틸리티 및 타입
+│   │   │   ├── ModeToggle.tsx       # 바코드/영수증 전환
+│   │   │   ├── PhotoConfirmModal.tsx # 사진 확인 화면
+│   │   │   ├── BarcodeScanner.tsx   # 바코드 스캔 로직 (계획)
+│   │   │   ├── ReceiptCamera.tsx    # 영수증 카메라 & OCR (계획)
+│   │   │   ├── BarcodeModal.tsx     # 바코드 결과 모달 (계획)
+│   │   │   ├── ManualEntryModal.tsx # 직접 입력 화면 (계획)
+│   │   │   └── README.md            # 스캔 모듈 기술 문서
+│   │   └── ui/                      # 공용 UI 컴포넌트
+│   ├── lib/                         # Supabase 클라이언트 등
+│   └── styles/                      # 전역 스타일
+│
+├── backend/                          # ✅ AI 모델, 비즈니스 로직, API 서버
+│   ├── api/
+│   │   └── app.py                   # Flask API 서버
+│   │       ├── /lookup_barcode      # 바코드 조회 (DB 캐싱 완료)
+│   │       └── /upload_receipt     # 🆕 영수증 OCR (2025-11-15 추가)
+│   ├── models/                      # 훈련된 ML 모델들
+│   │   ├── item_classifier.pkl     # ✅ 품목 분류 모델
+│   │   ├── model_classes.json      # ✅ 카테고리 매핑
+│   │   └── vectorizer.pkl          # ✅ 텍스트 벡터화
+│   ├── utils/
+│   │   ├── barcode_lookup.py       # DB 캐싱 + 외부 API 연동
+│   │   └── expiry_logic.py         # 영수증 OCR 처리 로직
+│   └── data/
+│       └── categories_proper.csv   # ✅ 카테고리 마스터 데이터
+│
+├── docs/                            # ✅ 프로젝트 계획 및 기술 문서
+│   ├── 프론트엔드/
+│   │   ├── frontend_plan.md         # 프론트엔드 개발 계획
+│   │   └── receipt_ocr_plan.md      # 영수증 OCR 세부 계획 (체크리스트)
+│   ├── 스키마/
+│   │   └── schema.md                # Supabase DB 스키마 정의
+│   ├── log.md                       # 🔄 로그 및 개선사항 (2025-11-15 업데이트)
+│   └── data.md                      # 데이터 모델 문서
+│
+└── backend/                         # ✅ (중복) 백엔드 코드 (최상단과 동일)
 ```
 
 ---
 
 ## 🚀 시작하기
 
-각 파트별 상세한 설정 및 실행 방법은 해당 디렉토리의 `README.md` 파일을 참고하세요.
+### 🚀 테스트 확인된 기능 (2025-11-15)
 
-1.  **프론트엔드 실행:** `app/README.md` 참고
-2.  **백엔드 실행:** `backend/README.md` 참고
-3.  **데이터 모델 확인:** `docs/data.md` 참고
-4.  **프로젝트 계획 및 MLOps 전략 확인:** `docs/log.md` 참고
+#### ✅ 완료된 핵심 기능
+1. **바코드 스캔 시스템** 
+   - DB 캐싱 구조 (products → inventory 2단계 저장)
+   - 외부 API 호출 최적화 (DB HIT 시 0.1초 응답)
+   - 404 오류 시 직접 입력 기능
+   
+2. **영수증 OCR 기반**
+   - react-native-vision-camera로 사진 촬영
+   - PaddleOCR + AI 모델 처리 준비
+   - /upload_receipt API 완료
+
+#### 🔧 진행 중인 모듈화
+- **scan.tsx** (800줄) → **components/scan/** 모듈로 분리 중
+- 영수증 결과 검토 화면 및 카테고리 수정 UI
+- MLOps 피드백 수집 기능
+
+### 📁 각 파트별 상세 정보
+
+1.  **프론트엔드 실행 및 모듈**: 
+    - 실행: `app/` 참고
+    - 스캔 모듈: `app/components/scan/README.md` 참고
+2.  **백엔드 API 서버**: `backend/` 참고
+3.  **프론트엔드 계획**: `docs/프론트엔드/frontend_plan.md` 참고
+4.  **영수증 OCR 계획**: `docs/프론트엔드/receipt_ocr_plan.md` 참고
+5.  **데이터베이스 스키마**: `docs/스키마/schema.md` 참고
+6.  **MLOps 전략 및 개선사항**: `docs/log.md` 참고
+
+### 🔍 현재 상태 요약
+- **🟢 양호**: 백엔드 API 준비 완료, 모듈화 시작
+- **🟡 진행 중**: 프론트엔드 리팩토링, 영수증 OCR UI 구현
+- **🔵 계획**: MLOps 피드백 시스템, 오프라인 모드
 
 ---

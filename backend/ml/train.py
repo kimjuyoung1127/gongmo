@@ -88,9 +88,27 @@ def predict_item_category_and_expiry(model_path, item_name):
     """
     Predict the category and expiry days for a given item name
     """
+    print(f"[DEBUG] 모델 로드 시도: {model_path}")
+    
+    # 기본 경로 수정 - models/item_classifier.pkl 사용
+    if model_path.startswith('data/'):
+        model_path = model_path.replace('data/', 'models/')
+        if model_path.endswith('model.pkl'):
+            model_path = model_path.replace('model.pkl', 'item_classifier.pkl')
+        print(f"[DEBUG] 경로 수정: {model_path}")
+    
     # 학습된 모델 로드
-    with open(model_path, 'rb') as f:
-        model_data = pickle.load(f)
+    try:
+        # 기존 방식으로 시도
+        with open(model_path, 'rb') as f:
+            model_data = pickle.load(f)
+    except (pickle.UnpicklingError, AttributeError, TypeError) as e:
+        print(f"[DEBUG] Pickle 호환성 오류: {str(e)}")
+        
+        # 호환성 강제 시도
+        import pickle5 as pickle_compat
+        with open(model_path, 'rb') as f:
+            model_data = pickle_compat.load(f)
     
     category_model = model_data['category_model']
     expiry_by_category = model_data['expiry_by_category']
