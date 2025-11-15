@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Switch } from 'react-native';
 import { ReceiptItem } from '../lib/supabase';
 
 interface ReceiptItemCardProps {
@@ -7,87 +7,86 @@ interface ReceiptItemCardProps {
   onToggle: () => void;
 }
 
-export default function ReceiptItemCard({ item, onToggle }: ReceiptItemCardProps) {
+const ReceiptItemCard: React.FC<ReceiptItemCardProps> = ({ item, onToggle }) => {
   return (
-    <View style={styles.container}>
-      {/* 체크박스 */}
-      <TouchableOpacity 
-        style={[styles.checkbox, item.selected && styles.checkboxChecked]}
-        onPress={onToggle}
-      >
-        {item.selected && <Text style={styles.checkmark}>✓</Text>}
-      </TouchableOpacity>
-      
-      {/* 품목 정보 */}
-      <View style={styles.itemInfo}>
-        <Text style={styles.itemName}>{item.clean_text}</Text>
-        <View style={styles.metaRow}>
-          <Text style={styles.category}>{item.category_name_kr}</Text>
-          <Text style={styles.expiry}>D+{item.expiry_days}</Text>
+    <View style={[
+      styles.card,
+      item.selected ? styles.cardSelected : styles.cardUnselected
+    ]}>
+      <View style={styles.content}>
+        <View style={styles.textContainer}>
+          <Text style={styles.itemName}>{item.clean_text}</Text>
+          <Text style={styles.category}>카테고리: {item.category_name_kr}</Text>
+          <Text style={styles.expiry}>유통기한: {item.expiry_days}일</Text>
+        </View>
+        <View style={styles.toggleContainer}>
+          <Text style={styles.toggleLabel}>{item.selected ? '선택됨' : '미선택'}</Text>
+          <Switch
+            value={item.selected}
+            onValueChange={onToggle}
+            trackColor={{ false: "#767577", true: "#81b0ff" }}
+            thumbColor={item.selected ? "#007AFF" : "#f4f3f4"}
+          />
         </View>
       </View>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#FFF',
-    borderRadius: 8,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
+  card: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E1E8E8',
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 16,
+    marginBottom: 12,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
-  checkboxChecked: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
+  cardSelected: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#007AFF',
   },
-  checkmark: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: 'bold',
+  cardUnselected: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#CCC',
   },
-  itemInfo: {
-    flex: 1,
-  },
-  itemName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  metaRow: {
+  content: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  textContainer: {
+    flex: 1,
+  },
+  itemName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
   category: {
     fontSize: 14,
     color: '#666',
-    backgroundColor: '#F8F9FA',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    marginBottom: 2,
   },
   expiry: {
     fontSize: 14,
-    color: '#007AFF',
-    fontWeight: '500',
+    color: '#888',
+  },
+  toggleContainer: {
+    alignItems: 'flex-end',
+  },
+  toggleLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 5,
   },
 });
+
+export default ReceiptItemCard;
