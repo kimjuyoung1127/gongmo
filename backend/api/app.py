@@ -140,45 +140,115 @@ def parse_clova_response_to_items(clova_response):
 
 def _is_valid_product_item(text):
     """
-    확장성 있는 상품 항목 검증 (재고 관리 적합성 체크).
+    강화된 상품 항목 검증 (실제 상품명만 추출).
     """
-    # 제외 패턴들 (재고 관리 불필요 데이터)
+    text_clean = text.strip()
+    
+    # ===================
+    # 1. 명확한 제외 패턴들
+    # ===================
     exclude_patterns = [
-        r'^\d+$',  # 숫자만
-        r'^[.,\-+]+$',  # 기호만
-        r'^[\d,\.•\*\-+\s]*$',  # 숫자, 기호만
-        r'^총합계$',  # 합계
-        r'^현금$',
-        r'^카드$',
-        r'^신용$',
-        r'^수량$',
-        r'^단가$',
-        r'^금액$',
-        r'^부가세$',
-        r'^받은금액$',
-        r'^거스름돈$',
-        r'^점포명$',
-        r'^할인금액$',
-        r'^전표NO',
-        r'^승인금액$',
-        r'^승인번호$',
-        r'^.*카드신용승인.*$',
-        r'^.*기매전에.*$',
-        r'^.*일시불.*$',  # 일시불 카드
-        r'^.*\(\*\)$',  # 할인 표시
-        r'^(NO\.|NO|No\.)?\s*\d+$',  # 번호
-        r'^\d{4}[-/]?\d{2}[-/]?\d{2}$',  # 날짜
+        # 가게 정보
+        r'.*식자재.*', r'.*마트.*', r'.*시장.*', r'.*STORE.*',
+        r'.*supermarket.*', r'.*market.*',
+        
+        # 사업자 정보
+        r'사업자:', r'대표자:', r'주소:', r'전화:', r'팩스:',
+        r'.*\d{3}-\d{2}-\d{5}.*',  # 사업자번호
+        
+        # 위치 정보
+        r'.*시.*', r'.*구.*', r'.*동.*', r'.*로.*', r'.*길.*\d+.*',
+        
+        # 날짜/시간
+        r'^\d{4}[-/]?\d{2}[-/]?\d{2}$',  # 2023-06-05
+        r'^\d{1,2}월.*', r'.*\d{1,2}일.*',
         r'^\d{1,2}:\d{2}$',  # 시간
-        r'^\(\*\)$',  # 별표 표시
+        
+        # 가격/금액 관련
+        r'^[\d,]+원?$',  # 2,900, 17,970원
+        r'^\d+$',  # 숫자만
+        r'^\d{3}[-\s]?\d{2}[-\s]?\d{4}$',  # 전화번호
+        r'^\d{4,}$',  # 4자리 이상 숫자 (바코드 등)
+        r'^\d+[,.]?\d*$',  # 소수점 포함 숫자
+        
+        # 테이블 헤더
+        r'^수량$', r'^단가$', r'^금액$', r'^상품명$', r'^합계$',
+        r'^부가세$', r'^현금$', r'^카드$', r'^신용$', r'^결제$',
+        
+        # 영수증 용어
+        r'매출수량:', r'면세상품입니다', r'부가세', r'계:',
+        r'면세물품금액:', r'할인금액', r'거스름돈', r'받은금액',
+        r'승인금액', r'승인번호', r'전표NO',
+        r'.*일시불.*', r'.*카드신용승인.*', r'.*기매전에.*',
+        
+        # 기타 정보
+        r'^\(.+\)$',  # 괄호로 둘러싸인 텍스트
+        r'^.*\(\*\).*$',  # 별표 표시
+        r'^HE$', r'^HCH$',  # 의미 없는 텍스트
+        r'^NO\d*$', r'^\d+\)$',  # 번호
+        r'^\d{1,2}개$',  # 수량만 있는 경우
+        
+        # 기호만
+        r'^[.,\-+()*=☐✔⚠]+$',  # 기호만
         r'^$',  # 빈 문자열
     ]
     
     for pattern in exclude_patterns:
-        if re.match(pattern, text):
+        if re.match(pattern, text_clean, re.IGNORECASE):
             return False
     
-    # 의미 있는 텍스트: 2-20자 길이, 한글/영문/숫자 포함
-    return 2 <= len(text) <= 20
+    # ===================
+    # 2. 상품명 특징 기반 포함 패턴
+    # ===================
+    
+    # 상품명 특징: *표시 + 한글/영문 + 수량/단위
+    product_patterns = [
+        r'^\*.+[가-힣A-Za-z].+\d+[a-zA-Z가-힣]*$',  # *깐마늘슬라이스130g
+        r'^\*.+[가-힣A-Za-z].+\d+[gml개봉병통]$',  # *돼지벌집살겹살
+        r'^\*.+[가-힣A-Za-z]+$',  # *파채
+    ]
+    
+    for pattern in product_patterns:
+        if re.match(pattern, text_clean):
+            return True
+    
+    # ===================
+    # 3. 상품명 기본 조건
+    # ===================
+    
+    # 길이 체크: 2-50자 (대한민국 상품명 평균)
+    if not (2 <= len(text_clean) <= 50):
+        return False
+    
+    # 한글/영문/숫자가 포함된 의미 있는 단어
+    has_meaningful_chars = bool(re.search(r'[가-힣A-Za-z0-9]', text_clean))
+    if not has_meaningful_chars:
+        return False
+    
+    # 최소 1개 이상의 한글 또는 영문 단어 포함
+    has_korean = bool(re.search(r'[가-힣]', text_clean))
+    has_english = bool(re.search(r'[A-Za-z]', text_clean))
+    
+    if not (has_korean or has_english):
+        return False
+    
+    # 4. 상품명으로 추정되는 경우
+    # 흔한 상품명 단어 포함 여부
+    product_keywords = [
+        '고기', '돼지', '소', '닭', '생선', '어', '김치', '시금치', '상추', '배추',
+        '양파', '마늘', '파', '생강', '고추', '버섯', '오이', '가지', '당근', '무',
+        '사과', '배', '포도', '바나나', '딸기', '오렌지', '레몬',
+        '우유', '계란', '치즈', '요거트', '빵', '과자', '면', '라면', '파스타',
+        '시리얼', '음료', '주스', '생수', '커피', '차', '술', '소주', '맥주',
+        '설탕', '소금', '간장', '식초', '고추장', '케찹', '마요네즈',
+        '비누', '치약', '샴푸', '린스', '화장지', '티슈',
+        '슬라이스', '살겹살', '목살', '안심', '갈비', '다리', '날개', '가슴살',
+        '통조림', '캔', '병', '봉', '박스', '팩', '케이스', '개입', '세트',
+        'g$', 'ml$', 'L$', 'kg$', '개$', '봉$', '팩$', '박스$', '세트$'
+    ]
+    
+    has_product_keyword = any(keyword in text_clean for keyword in product_keywords)
+    return has_product_keyword
 
 def _estimate_expiry_days(item_name):
     """
@@ -280,41 +350,14 @@ def _classify_product_category(item_name):
 
 def _estimate_expiry_days_enhanced(item_name):
     """
-    개선된 유통기한 예측 (확장성 있도록).
+    DB 기반 유통기한 예측 (확장성 있도록).
     """
-    # 상세 카테고리별 유통기한
-    product_expiry_map = {
-        # 채소류 (가장 짧음)
-        '채소': {'기본': 3, '상추': 5, '김치': 7, '수박치': 4, '양배추': 3, '추부깻잎': 5},
-        
-        # 과일류
-        '과일': {'기본': 5, '베리류': 7, '열대과': 14, '과일': 7, '사과': 30, '바나나': 10},
-        
-        # 유제품
-        '유제품': {'기본': 7, '우유': 14, '계란': 30, '요거트': 21, '치즈': 30, '버터': 45},
-        
-        # 정육류
-        '정육': {'기본': 5, '소고': 7, '돼지고기': 7, '닭고기': 5, '어류': 3, '지방고기': 14},
-        
-        # 해산물 (가장 짧음)
-        '해산물': {'기본': 3, '어류': 3, '참순대': 3, '갈치': 3, '고등어': 3},
-        
-        # 가공식품 (가장 김)
-        '가공식품': {'기본': 180, '라면': 365, '과자': 120, '빵': 90, '통조림': 540},
-        
-        # 조미료
-        '조미료': {'기본': 365, '설탕': 1095, '간장': 730, '고추장': 540},
-    }
+    # 카테고리 분류 수행
+    category_name = _classify_product_category(item_name)
     
-    # 상품명 기반 예측
-    item_name_lower = item_name.lower()
-    
-    for category, expiry_map in product_expiry_map.items():
-        for keyword, days in expiry_map.items():
-            if keyword in item_name_lower:
-                return days
-    
-    return 14  # 기본 유통기한
+    # DB에서 해당 카테고리의 유통기한 조회
+    from utils.expiry_logic import _get_category_expiry_days
+    return _get_category_expiry_days(category_name)
 
 def resize_image_for_clova(image_path, max_size=2000, quality=75):
     """
@@ -374,6 +417,9 @@ supabase: Client = create_client(supabase_url, supabase_key) if supabase_url and
 # barcode_lookup.py에 Supabase 클라이언트 전달
 if supabase:
     set_supabase_client(supabase)
+    # expiry_logic.py에도 Supabase 클라이언트 전달
+    from utils.expiry_logic import set_supabase_client_for_categories
+    set_supabase_client_for_categories(supabase)
 
 # 기본 상태 확인 엔드포인트
 @app.route('/health', methods=['GET'])
@@ -479,6 +525,13 @@ def upload_receipt_v2():
         if 'image' not in request.files:
             return jsonify({'error': '이미지 파일이 제공되지 않았습니다'}), 400
 
+        # user_id 확인
+        user_id = request.form.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'user_id가 제공되지 않았습니다'}), 400
+        
+        print(f"[USER] 수신된 user_id: {user_id}")
+
         image_file = request.files['image']
 
         # 임시 파일 생성
@@ -501,62 +554,62 @@ def upload_receipt_v2():
             processed_items = parse_clova_response_to_items(clova_response)
             print(f"[DEBUG] 클로바 OCR v2 처리 완료, 처리된 항목 수: {len(processed_items)}")
 
-            # receipts 테이블에 저장 (임시 비활성화)
-            """
-            receipt_record = {
-                "store_name": "Unknown Store",
-                "image_url": None  # TODO: Supabase Storage 연동 필요
-            }
+            # inventory 테이블에 직접 저장 (단일 테이블 구조)
+            from datetime import datetime, timedelta
+            inventory_items = []
             
-            if supabase:
-                receipt_response = supabase.table('receipts').insert(receipt_record).execute()
-                if not receipt_response.data:
-                    raise Exception("영수증 레코드 생성 실패")
-            """
-            print("[DEBUG] receipts 저장 블록 건너뜀 (임시)")
-            
-            # 임시 receipt_id 설정
-            receipt_id = 1
-
-            # receipt_items 테이블에 저장
-            items_to_insert = []
             for item in processed_items:
-                    items_to_insert.append({
-                        "receipt_id": receipt_id,
-                        "raw_text": item.get('item_name'),
-                        "clean_text": item.get('item_name'),
-                        "category_id": item.get('category_id'),
-                        "expiry_days": item.get('predicted_expiry_days'),
-                        "status": 'parsed'
-                    })
-            
-            if items_to_insert:
-                supabase.table('receipt_items').insert(items_to_insert).execute()
-
-            # 프론트엔드 표준 응답 형식
-            response_items = []
-            for idx, item in enumerate(processed_items):
-                response_items.append({
-                    "id": idx + 1000,  # 임시 ID
+                expiry_date = datetime.now().date() + timedelta(days=item.get('predicted_expiry_days', 7))
+                inventory_items.append({
+                    "name": item.get('item_name'),
+                    "category_id": item.get('category_id'),
+                    "quantity": item.get('quantity', 1),
+                    "expiry_date": expiry_date.isoformat(),
+                    "source_type": 'receipt',
+                    "store_name": 'Unknown Store',
                     "raw_text": item.get('item_name'),
-                    "clean_text": item.get('item_name'),
+                    "purchase_date": datetime.now().date().isoformat(),
+                    "user_id": user_id  # ✅ 실제 사용자 ID 적용
+                })
+            
+            stored_inventory_items = []
+            if inventory_items and supabase:
+                print(f"[DEBUG] inventory 테이블 직접 저장 시작, 항목 수: {len(inventory_items)}")
+                try:
+                    response = supabase.table('inventory').insert(inventory_items).execute()
+                    if response.data:
+                        stored_inventory_items = response.data
+                        print(f"[DEBUG] inventory 저장 성공, 저장된 항목 수: {len(stored_inventory_items)}")
+                    else:
+                        print("[DEBUG] inventory 저장 실패")
+                except Exception as db_error:
+                    print(f"[DEBUG] inventory 저장 실패: {str(db_error)}")
+            else:
+                print("[DEBUG] inventory 저장 생략 (데이터 없음)")
+
+            # 단일 테이블 구조: 더 이상 receipt_items 불필요
+            print("[DEBUG] 단일 inventory 테이블 구조로 처리 완료")
+
+            # 단일 테이블 구조: 직접 저장된 inventory 데이터 사용
+            response_items = []
+            for idx, item in enumerate(stored_inventory_items):
+                response_items.append({
+                    "id": item['id'],  # 실제 DB ID
+                    "raw_text": item['raw_text'],
+                    "clean_text": item['name'],  # inventory.name 필드
                     "pred": {
-                        "category_id": item.get('category_id'),
-                        "category_code": f"cat_{item.get('category_id')}",
+                        "category_id": item['category_id'],
+                        "category_code": f"cat_{item['category_id']}",
                         "confidence": 0.85  # 임시 신뢰도
                     },
-                    "expiry_days": item.get('predicted_expiry_days'),
-                    "quantity_hint": item.get('quantity', 1)
+                    "expiry_days": (datetime.strptime(item['expiry_date'], '%Y-%m-%d').date() - datetime.now().date()).days,
+                    "quantity_hint": item['quantity']
                 })
 
             return jsonify({
-                'receipt_id': receipt_id,
-                'image_url': None,
-                'items': response_items,
-                'stats': {
-                    'latency_ms': 2000,
-                    'engine': 'paddleocr+rules+clf_v2'
-                }
+                'success': True,
+                'processed_count': len(stored_inventory_items),
+                'message': f'{len(stored_inventory_items)}개 품목이 재고에 저장되었습니다.'
             })
 
         finally:
@@ -646,6 +699,66 @@ def lookup_barcode():
             'status': 'error',
             'message': '서버 내부 오류가 발생했습니다.'
         }), 500
+
+# Inventory 일괄 저장 API
+@app.route('/inventory/batch_add', methods=['POST'])
+def batch_add_inventory():
+    """
+    선택된 영수증 항목들을 inventory 테이블에 일괄 저장합니다.
+    """
+    try:
+        data = request.get_json()
+        items = data.get('items', [])
+        
+        if not items:
+            return jsonify({'error': '저장할 항목이 없습니다'}), 400
+        
+        print(f"[DEBUG] inventory 일괄 저장 시작, 항목 수: {len(items)}")
+        
+        # 각 항목을 inventory 테이블 형식으로 변환
+        inventory_items = []
+        from datetime import datetime, timedelta
+        
+        for item in items:
+            receipt_item_id = item.get('receipt_item_id')
+            name = item.get('name')
+            category_id = item.get('category_id')
+            quantity = item.get('quantity', 1)
+            expiry_days = item.get('expiry_days', 7)
+            
+            # 유통기한 계산
+            purchase_date = datetime.now().date()
+            expiry_date = purchase_date + timedelta(days=expiry_days)
+            
+            inventory_items.append({
+                'receipt_item_id': receipt_item_id,
+                'category_id': category_id,
+                'name': name,
+                'quantity': quantity,
+                'purchase_date': purchase_date.isoformat(),
+                'expiry_date': expiry_date.isoformat(),
+                'status': 'active'
+            })
+        
+        # inventory 테이블에 일괄 저장
+        if supabase and inventory_items:
+            response = supabase.table('inventory').insert(inventory_items).execute()
+            
+            if response.data:
+                print(f"[DEBUG] inventory 일괄 저장 성공, 저장된 항목 수: {len(response.data)}")
+                return jsonify({
+                    'success': True,
+                    'message': f'{len(response.data)}개 항목을 재고에 추가했습니다.',
+                    'items': response.data
+                }), 200
+            else:
+                raise Exception("inventory 저장 실패")
+        else:
+            raise Exception("Supabase 연결 또는 데이터 문제")
+            
+    except Exception as e:
+        print(f"[ERROR] inventory 일괄 저장 실패: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
