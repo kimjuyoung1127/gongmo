@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Button, Modal, ActivityIndicator, Vibration, TextInput, Alert } from 'react-native';
 import { useCameraPermission, useCameraDevice, Camera, useCodeScanner } from 'react-native-vision-camera';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native'; // useNavigation 임포트
 import axios from 'axios';
 import { supabase } from '../../lib/supabase'; // Supabase 클라이언트 임포트
 
 //  중요: 이 URL을 실제 실행 중인 백엔드 서버의 IP 주소로 변경하세요.
-const BACKEND_URL = 'http://172.30.1.16:5000'; 
+const BACKEND_URL = 'http://172.30.1.59:5000'; 
 
 export default function ScanScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
   const isFocused = useIsFocused();
+  const navigation = useNavigation(); // navigation 객체 가져오기
 
   // --- 타입 정의 ---
   type ScannedProductData = {
@@ -59,14 +60,21 @@ export default function ScanScreen() {
           
           if (response.data && response.data.data) {
             const productData = response.data.data;
-            console.log('[API-4] 제품 정보 수신:');
-            console.log('  - 이름:', productData.name);
-            console.log('  - 카테고리 ID:', productData.category_id);
-            console.log('  - 카테고리 이름:', productData.category_name_kr);
-            console.log('  - 소스:', productData.source);
-            
-            setScannedData({ ...productData, barcode });
-            console.log('[API-5] 스캔 데이터 상태 업데이트 완료');
+
+            // 💡 FIX: API 응답에 제품 이름이 있는지 확인 (product_name 사용)
+            if (productData && productData.product_name) {
+              console.log('[API-4] 제품 정보 수신:');
+              console.log('  - 이름:', productData.product_name); // product_name 사용
+              console.log('  - 카테고리 ID:', productData.category_id);
+              console.log('  - 카테고리 이름:', productData.category_name_kr);
+              console.log('  - 소스:', productData.source);
+              
+              setScannedData({ ...productData, name: productData.product_name, barcode }); // name 필드 명시적 매핑
+              console.log('[API-5] 스캔 데이터 상태 업데이트 완료');
+            } else {
+              console.log('[API-6] 오류: API가 제품 이름 없이 응답함');
+              setError('해당 바코드의 상품 정보를 찾을 수 없습니다 (이름 없음).');
+            }
           } else {
             console.log('[API-6] 경고: 응답에 data 필드가 없음');
             setError('서버 응답 형식이 올바르지 않습니다.');
@@ -180,6 +188,7 @@ export default function ScanScreen() {
         console.log('  - 삽입된 데이터:', data);
         Alert.alert('저장 성공', '재고에 상품이 추가되었습니다.');
         handleCloseModal();
+        navigation.navigate('index'); // 재고 목록 탭으로 이동
       }
     } catch (error: any) {
       console.error('[INV-7] 재고 추가 중 예외 발생:', error);

@@ -1,0 +1,30 @@
+# === 상위 폴더 (scanner-project) 항목 제외 ===
+
+# Git
+../.git/
+
+# Python 가상환경
+../.venv/
+
+# Python 백엔드 코드
+../backend/
+
+# 문서
+../docs/
+
+
+# AI 모델, 데이터셋, 마크다운 등 기타 파일
+../*.pkl
+../*.csv
+../*.md
+
+# === 현재 폴더 (app) 항목 제외 ===
+
+# Node.js 모듈
+**/node_modules/
+
+# === 기타 ===
+.DS_Store
+*.pem
+*.apk
+*.ipa
