@@ -33,6 +33,84 @@ export type InventoryItem = {
   updated_at: string;
 };
 
+// 영수증 항목 타입 정의
+export type ReceiptItem = {
+  id: number;
+  receipt_id: number;
+  raw_text: string;
+  clean_text: string;
+  category_id: number;
+  category_name_kr: string;
+  expiry_days: number;
+  status: 'parsed' | 'added_to_inventory' | 'ignored';
+  selected: boolean; // UI 상태
+};
+
+// 영수증 결과 타입 정의
+export type ReceiptResult = {
+  receipt_id: number;
+  image_url: string | null;
+  success: boolean;
+  items: ReceiptItem[];
+  stats: {
+    latency_ms: number;
+    engine: string;
+    extracted_count: number;
+    processed_count: number;
+  };
+};
+
+// 영수증 항목 목록 로드
+export const loadReceiptItems = async (receiptId: number): Promise<ReceiptItem[]> => {
+  const { data, error } = await supabase
+    .from('receipt_items')
+    .select(`
+      *,
+      categories(category_name_kr)
+    `)
+    .eq('receipt_id', receiptId);
+  
+  if (error) {
+    console.error('영수증 항목 로드 오류:', error);
+    throw error;
+  }
+  
+  // ReceiptItem 형식으로 변환
+  return data.map(item => ({
+    ...item,
+    category_name_kr: item.categories?.category_name_kr || '기타',
+    selected: true // 기본적으로 모두 선택
+  }));
+};
+
+// 재고 일괄 추가
+export const batchAddToInventory = async (receiptItems: ReceiptItem[]): Promise<void> => {
+  const selectedItems = receiptItems.filter(item => item.selected);
+  
+  if (selectedItems.length === 0) {
+    throw new Error('선택된 항목이 없습니다.');
+  }
+
+  const inventoryItems = selectedItems.map(item => ({
+    receipt_item_id: item.id,
+    category_id: item.category_id,
+    name: item.clean_text,
+    quantity: 1, // 기본값
+    expiry_days: item.expiry_days,
+    purchase_date: new Date().toISOString().split('T')[0],
+    status: 'active'
+  }));
+
+  const { error } = await supabase.functions.invoke('inventory/batch_add', {
+    body: { items: inventoryItems }
+  });
+
+  if (error) {
+    console.error('재고 일괄 추가 실패:', error);
+    throw error;
+  }
+};
+
 // 활성 재고 목록 로드 (categories 테이블 JOIN)
 export const loadActiveInventory = async (userId: string): Promise<InventoryItem[]> => {
   const { data, error } = await supabase

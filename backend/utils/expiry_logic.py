@@ -7,54 +7,69 @@ import os
 from datetime import datetime, timedelta
 from ml.train import predict_item_category_and_expiry
 
-# --- 카테고리 매핑 헬퍼 함수 ---
-_category_map_by_name_cache = None
+# --- 카테고리 매핑 헬퍼 함수 (DB 기반) ---
+_category_map_by_code_cache = None
+_supabase_client = None
 
-def _load_category_map_by_name():
+def set_supabase_client_for_categories(supabase_client):
+    """카테고리 조회를 위한 Supabase 클라이언트 설정"""
+    global _supabase_client
+    _supabase_client = supabase_client
+
+def _load_category_map_from_db():
     """
-    categories_proper.csv 파일을 읽어 카테고리 이름과 ID를 매핑하는 딕셔너리를 생성하고 캐싱합니다.
+    Supabase DB에서 카테고리 정보를 로드하여 캐싱합니다.
     """
-    category_map = {}
+    if not _supabase_client:
+        print("Warning: Supabase 클라이언트가 설정되지 않았습니다. 기본 카테고리 매핑을 사용합니다.")
+        return {'기타': {'id': 37, 'code': 'ETC', 'expiry_days': 7}}  # ETC ID 기본값
+    
     try:
-        # 절대 경로를 사용하여 파일 찾기 - 절대 경로에 맞춤
-        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # categories 테이블에서 모든 카테고리 조회
+        response = _supabase_client.table('categories').select('*').execute()
         
-        # 여러 경로 시도 (backend/utils에서 data 폴더 접근)
-        data_dir = os.path.join(current_dir, '..', '..', 'data')
-        csv_path = os.path.join(data_dir, 'categories_master.csv')
-        
-        # 파일이 없으면 다른 방법 시도 (fallback)
-        if not os.path.exists(csv_path):
-            csv_path = os.path.join(data_dir, 'categories_proper.csv')
-        
-        with open(csv_path, mode='r', encoding='utf-8') as infile:
-            reader = csv.DictReader(infile)
-            for idx, row in enumerate(reader):
-                # 인덱스를 기반으로 ID 생성 (1부터 시작)
-                category_id = idx + 1
+        if response.data:
+            category_map = {}
+            for row in response.data:
                 category_map[row['category_name_kr']] = {
-                    "id": category_id,
-                    "code": row['category_code']
+                    "id": row['id'],
+                    "code": row['category_code'],
+                    "expiry_days": row['default_expiry_days']
                 }
-        print(f"Info: {len(category_map)}개의 카테고리를 {csv_path}에서 성공적으로 로드했습니다.")
-        return category_map
-    except FileNotFoundError:
-        print(f"Warning: {csv_path} 파일을 찾을 수 없습니다. 카테고리 ID 매핑이 비활성화됩니다.")
-        return {'기타': {'id': 1}}  # 기본 카테고리
+            print(f"Info: DB에서 {len(category_map)}개의 카테고리를 성공적으로 로드했습니다.")
+            return category_map
+        else:
+            print("Warning: DB에서 카테고리를 찾을 수 없습니다. 기본 매핑을 사용합니다.")
+            return {'기타': {'id': 37, 'code': 'ETC', 'expiry_days': 7}}
+            
     except Exception as e:
-        print(f"Error: 카테고리 파일 로드 중 오류 발생: {e}")
-        return {}
+        print(f"Error: DB 카테고리 로드 중 오류 발생: {e}")
+        return {'기타': {'id': 37, 'code': 'ETC', 'expiry_days': 7}}
+
+def _get_category_info_by_name(category_name: str):
+    """
+    카테고리 이름을 기반으로 ID, 코드, 유통기한을 조회합니다.
+    """
+    global _category_map_by_code_cache
+    if _category_map_by_code_cache is None:
+        _category_map_by_code_cache = _load_category_map_from_db()
+    
+    category_info = _category_map_by_code_cache.get(category_name)
+    if category_info:
+        return category_info
+    else:
+        # 기본값으로 '기타' 카테고리 반환
+        return {'id': 37, 'code': 'ETC', 'expiry_days': 7}
 
 def _get_category_id_by_name(category_name: str):
-    """
-    카테고리 이름을 기반으로 ID를 조회합니다.
-    """
-    global _category_map_by_name_cache
-    if _category_map_by_name_cache is None:
-        _category_map_by_name_cache = _load_category_map_by_name()
-    
-    category_info = _category_map_by_name_cache.get(category_name)
-    return category_info['id'] if category_info else 1  # 기본 ID: 기타
+    """기존 호환성을 위한 wrapper 함수"""
+    category_info = _get_category_info_by_name(category_name)
+    return category_info['id']
+
+def _get_category_expiry_days(category_name: str):
+    """카테고리 유통기한 조회"""
+    category_info = _get_category_info_by_name(category_name)
+    return category_info['expiry_days']
 
 # --- OCR 및 파싱 함수 ---
 

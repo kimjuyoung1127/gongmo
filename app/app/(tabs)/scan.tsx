@@ -7,8 +7,9 @@ import { useIsFocused, useNavigation } from '@react-navigation/native'; // useNa
 import axios from 'axios';
 import { supabase } from '../../lib/supabase'; // Supabase 클라이언트 임포트
 
-//  중요: 이 URL을 실제 실행 중인 백엔드 서버의 IP 주소로 변경하세요.
-const BACKEND_URL = 'http://172.30.1.59:5000'; 
+import { ModeToggle } from '../../components/scan/ModeToggle';
+import { PhotoConfirmModal } from '../../components/scan/PhotoConfirmModal';
+import { ScannedProductData, BACKEND_URL, getCategoryIdByName } from '../../components/scan/ScanUtils'; 
 
 export default function ScanScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -119,14 +120,26 @@ useEffect(() => {
   const uploadReceiptToBackend = async (imageUri: string) => {
     console.log('\n--- [OCR] 영수증 업로드 시작 ---');
     
-    const formData = new FormData();
-    formData.append('image', {
-      uri: imageUri,
-      type: 'image/jpeg',
-      name: 'receipt.jpg',
-    } as any);
-    
     try {
+      // 현재 로그인된 사용자 정보 가져오기
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        console.error('[USER-ERROR] 사용자 정보를 가져올 수 없습니다:', userError);
+        Alert.alert('오류', '로그인이 필요합니다. 다시 로그인해주세요.');
+        return null;
+      }
+      
+      console.log('[USER] 현재 사용자 ID:', user.id);
+      
+      const formData = new FormData();
+      formData.append('image', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'receipt.jpg',
+      } as any);
+      formData.append('user_id', user.id);  // ✅ user_id 전송 추가
+      
       const response = await fetch(`${BACKEND_URL}/upload_receipt`, {
         method: 'POST',
         body: formData,
@@ -150,7 +163,7 @@ useEffect(() => {
         return null;
       }
       
-      console.log('[OCR-SUCCESS] 처리 완료:', data.items.length, '개 품목');
+      console.log('[OCR-SUCCESS] 처리 완료:', data.processed_count, '개 품목');
       
       return data;
     } catch (error) {
@@ -175,12 +188,22 @@ useEffect(() => {
     const receiptData = await uploadReceiptToBackend(capturedImage);
     
     if (receiptData) {
-      // 결과 화면으로 이동 
-      console.log(`[NAV] receipt-review로 이동: ${receiptData.items.length}개 품목`);
-      navigation.navigate('receipt-review', { 
-        receiptData: receiptData,
-        imageUri: capturedImage 
-      });
+      console.log(`✅ [OCR-SUCCESS] ${receiptData.processed_count || 0}개 품목을 재고에 추가했습니다.`);
+      
+      // 바로 재고 화면으로 이동
+      Alert.alert(
+        '성공',
+        `${receiptData.processed_count || 0}개 품목이 재고에 추가되었습니다.`,
+        [
+          {
+            text: '확인',
+            onPress: () => {
+              console.log('[NAV] 재고 화면(index)으로 이동');
+              navigation.navigate('index' as never);
+            }
+          }
+        ]
+      );
     }
     
     console.log('--- [PHOTO-CONFIRM] 처리 완료 ---\n');
@@ -215,26 +238,6 @@ useEffect(() => {
   
   
 
-  // --- 카테고리 조회 함수 ---
-  const getCategoryIdByName = async (categoryName: string): Promise<number | null> => {
-    try {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('id')
-        .eq('category_name_kr', categoryName)
-        .single();
-      
-      if (error || !data) {
-        console.warn('[CATEGORY] 카테고리를 찾을 수 없음:', categoryName);
-        return null;
-      }
-      
-      return data.id;
-    } catch (error) {
-      console.error('[CATEGORY] 카테고리 조회 오류:', error);
-      return null;
-    }
-  };
 
   // --- 직접 입력 핸들러 ---
   const handleShowManualEntry = () => {
@@ -516,39 +519,7 @@ useEffect(() => {
       {isLoading && <ActivityIndicator size="large" color="#ffffff" />}
       
       {/* 모드 전환 버튼 */}
-      <View style={styles.segmentContainer}>
-        <View style={styles.segmentButtons}>
-          <TouchableOpacity 
-            style={[
-              styles.segmentButton, 
-              scanMode === 'barcode' ? styles.segmentButtonActive : styles.segmentButtonInactive
-            ]}
-            onPress={() => handleModeChange('바코드')}
-          >
-            <Text style={[
-              styles.segmentButtonText,
-              scanMode === 'barcode' ? styles.segmentButtonTextActive : styles.segmentButtonTextInactive
-            ]}>
-              바코드
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[
-              styles.segmentButton, 
-              scanMode === 'receipt' ? styles.segmentButtonActive : styles.segmentButtonInactive
-            ]}
-            onPress={() => handleModeChange('영수증')}
-          >
-            <Text style={[
-              styles.segmentButtonText,
-              scanMode === 'receipt' ? styles.segmentButtonTextActive : styles.segmentButtonTextInactive
-            ]}>
-              영수증
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <ModeToggle scanMode={scanMode} onModeChange={handleModeChange} />
       
       {/* 영수증 모드일 때 셔터 버튼 */}
       {scanMode === 'receipt' && (
@@ -604,38 +575,12 @@ useEffect(() => {
       </Modal>
 
       {/* 사진 확인 모달 */}
-      <Modal visible={showPhotoConfirm} animationType="slide" onRequestClose={handleRetakePhoto}>
-        <View style={styles.photoConfirmContainer}>
-          <Text style={styles.photoConfirmTitle}>사진 확인</Text>
-          
-          {capturedImage && (
-            <Image source={{ uri: capturedImage }} style={styles.capturedImage} />
-          )}
-          
-          <View style={styles.photoConfirmButtons}>
-            <TouchableOpacity 
-              style={[styles.photoConfirmButton, styles.retakeButton]} 
-              onPress={handleRetakePhoto}
-            >
-              <Text style={styles.photoConfirmButtonText}>다시 찍기</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.photoConfirmButton, styles.usePhotoButton]} 
-              onPress={handleUsePhoto}
-            >
-              <Text style={styles.photoConfirmButtonText}>이 사진 사용</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.photoGuideContainer}>
-            <Text style={styles.photoGuideTitle}>촬영 가이드</Text>
-            <Text style={styles.photoGuideText}>• 영수증 전체가 한 화면에 나오게 촬영</Text>
-            <Text style={styles.photoGuideText}>• 그림자나 반사가 없는 밝은 곳에서 촬영</Text>
-            <Text style={styles.photoGuideText}>• 글씨이 선명하게 읽혀야 합니다</Text>
-          </View>
-        </View>
-      </Modal>
+      <PhotoConfirmModal
+        visible={showPhotoConfirm}
+        imageUri={capturedImage}
+        onRetake={handleRetakePhoto}
+        onUsePhoto={handleUsePhoto}
+      />
 
       {/* 직접 입력 모달 */}
       <Modal visible={showManualEntry} animationType="slide" onRequestClose={() => setShowManualEntry(false)}>
@@ -708,44 +653,6 @@ const styles = StyleSheet.create({
   },
   buttonContainer: { marginTop: 15, width: '100%' },
   
-  // 세그먼트 버튼 스타일
-  segmentContainer: {
-    position: 'absolute',
-    bottom: 120,
-    left: 20,
-    right: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 8,
-    padding: 8,
-  },
-  segmentButtons: {
-    flexDirection: 'row',
-    borderRadius: 6,
-    backgroundColor: 'rgba(200, 200, 200, 0.5)',
-  },
-  segmentButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 6,
-  },
-  segmentButtonActive: {
-    backgroundColor: '#007AFF',
-  },
-  segmentButtonInactive: {
-    backgroundColor: 'transparent',
-  },
-  segmentButtonText: {
-    textAlign: 'center',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  segmentButtonTextActive: {
-    color: '#fff',
-  },
-  segmentButtonTextInactive: {
-    color: '#333',
-  },
-  
   // 셔터 버튼 스타일
   shutterButtonContainer: {
     position: 'absolute',
@@ -769,67 +676,6 @@ const styles = StyleSheet.create({
     color: '#333',
     textAlign: 'center',
     fontWeight: 'bold',
-  },
-  
-  // 사진 확인 화면 스타일
-  photoConfirmContainer: {
-    flex: 1,
-    backgroundColor: '#000',
-    padding: 20,
-    justifyContent: 'center',
-  },
-  photoConfirmTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  capturedImage: {
-    width: '100%',
-    height: '50%',
-    resizeMode: 'contain',
-    borderRadius: 10,
-    marginBottom: 20,
-  },
-  photoConfirmButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 30,
-  },
-  photoConfirmButton: {
-    flex: 0.45,
-    paddingVertical: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  retakeButton: {
-    backgroundColor: '#666',
-  },
-  usePhotoButton: {
-    backgroundColor: '#4CAF50',
-  },
-  photoConfirmButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  photoGuideContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    padding: 15,
-    borderRadius: 10,
-  },
-  photoGuideTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 10,
-  },
-  photoGuideText: {
-    fontSize: 14,
-    color: '#fff',
-    marginBottom: 5,
-    lineHeight: 20,
   },
   
   // 직접 입력 화면 스타일
