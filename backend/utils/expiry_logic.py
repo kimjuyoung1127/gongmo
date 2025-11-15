@@ -3,6 +3,7 @@ import numpy as np
 import requests
 import json
 import csv
+import os
 from datetime import datetime, timedelta
 from ml.train import predict_item_category_and_expiry
 
@@ -15,9 +16,16 @@ def _load_category_map_by_name():
     """
     category_map = {}
     try:
-        # 절대 경로를 사용하여 파일 찾기
+        # 절대 경로를 사용하여 파일 찾기 - 절대 경로에 맞춤
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        csv_path = os.path.join(current_dir, '..', 'data', 'categories_proper.csv')
+        
+        # 여러 경로 시도 (backend/utils에서 data 폴더 접근)
+        data_dir = os.path.join(current_dir, '..', '..', 'data')
+        csv_path = os.path.join(data_dir, 'categories_master.csv')
+        
+        # 파일이 없으면 다른 방법 시도 (fallback)
+        if not os.path.exists(csv_path):
+            csv_path = os.path.join(data_dir, 'categories_proper.csv')
         
         with open(csv_path, mode='r', encoding='utf-8') as infile:
             reader = csv.DictReader(infile)
@@ -32,7 +40,7 @@ def _load_category_map_by_name():
         return category_map
     except FileNotFoundError:
         print(f"Warning: {csv_path} 파일을 찾을 수 없습니다. 카테고리 ID 매핑이 비활성화됩니다.")
-        return {}
+        return {'기타': {'id': 1}}  # 기본 카테고리
     except Exception as e:
         print(f"Error: 카테고리 파일 로드 중 오류 발생: {e}")
         return {}
@@ -46,7 +54,7 @@ def _get_category_id_by_name(category_name: str):
         _category_map_by_name_cache = _load_category_map_by_name()
     
     category_info = _category_map_by_name_cache.get(category_name)
-    return category_info['id'] if category_info else None
+    return category_info['id'] if category_info else 1  # 기본 ID: 기타
 
 # --- OCR 및 파싱 함수 ---
 
@@ -91,13 +99,32 @@ def process_receipt_image(image_path, model_path, ocr_instance):
     5. 데이터베이스 삽입을 위한 포맷
     """
     ocr_texts = extract_text_from_image(image_path, ocr_instance)
+    print(f"[DEBUG] OCR 텍스트 추출 완료, 텍스트 수: {len(ocr_texts)}")
     receipt_items = parse_receipt_items(ocr_texts)
+    print(f"[DEBUG] 영수증 품목 파싱 완료, 품목 수: {len(receipt_items)}")
     
     processed_items = []
     for item in receipt_items:
-        prediction = predict_item_category_and_expiry(model_path, item)
-        if not prediction:
-            continue
+        print(f"[DEBUG] 품목 예측 시작: {item}")
+        try:
+            prediction = predict_item_category_and_expiry(model_path, item)
+            if not prediction:
+                print(f"[DEBUG] 품목 예측 실패, 임시 결과 사용: {item}")
+                prediction = {
+                    'category': '기타',
+                    'expiry_days': 7,
+                    'item_name': item
+                }
+            print(f"[DEBUG] 품목 예측 성공: {prediction}")
+        except Exception as e:
+            print(f"[ERROR] 품목 예측 중 오류 발생: {item}, 오류: {str(e)}")
+            # 임시 예측 결과 반환
+            prediction = {
+                'category': '기타',
+                'expiry_days': 7,
+                'item_name': item
+            }
+            print(f"[DEBUG] 임시 예측 결과 사용: {prediction}")
             
         expiry_date = calculate_expiry_date(prediction['expiry_days'])
         

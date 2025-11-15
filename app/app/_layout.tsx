@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { Session } from '@supabase/supabase-js';
-import * as Linking from 'expo-linking'; // Linking 임포트
+import * as Linking from 'expo-linking';
+import { NavigationProp } from '@react-navigation/native';
 
 const RootLayout = () => {
   const [session, setSession] = useState<Session | null>(null);
