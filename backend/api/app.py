@@ -426,6 +426,8 @@ if supabase:
 def health_check():
     return jsonify({'status': 'OK', 'message': 'Flask 서버가 작동 중입니다'})
 
+
+
 # 영수증 업로드 엔드포인트
 @app.route('/upload_receipt_image', methods=['POST'])
 def upload_receipt():

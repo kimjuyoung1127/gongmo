@@ -7,7 +7,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 # Flask 서버 주소 (로컬에서 테스트할 경우)
-BASE_URL = 'http://localhost:5000'
+BASE_URL = 'https://gongmo-backend.onrender.com'
 
 def test_health_check():
     """Health check 엔드포인트 테스트"""
