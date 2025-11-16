@@ -54,16 +54,21 @@ scanner-project/
 │
 ├── backend/                          # ✅ AI 모델, 비즈니스 로직, API 서버
 │   ├── api/
-│   │   └── app.py                   # Flask API 서버
-│   │       ├── /lookup_barcode      # 바코드 조회 (DB 캐싱 완료)
-│   │       └── /upload_receipt     # 🆕 영수증 OCR (2025-11-15 추가)
+│   │   ├── app.py                   # 🆕 Flask 메인 앱 (리팩토링 완료, 40라인)
+│   │   ├── ocr_service.py           # 🆕 Clova OCR 비즈니스 로직 모듈
+│   │   ├── utils/                   # 🆕 유틸리티 모듈 (이전 위치에서 api/로 이동)
+│   │   │   ├── barcode_lookup.py    # DB 캐싱 + 외부 API 연동
+│   │   │   ├── expiry_logic.py      # 영수증 OCR 처리 로직
+│   │   │   └── __init__.py          # 패키지 구조
+│   │   └── routes/                  # 🆕 블루프린트 기반 라우트 구조
+│   │       ├── ocr.py               # /upload_receipt* 엔드포인트
+│   │       ├── barcode.py           # /lookup_barcode 엔드포인트
+│   │       ├── inventory.py         # /inventory/* 및 /health 엔드포인트
+│   │       └── __init__.py          # 패키지 구조
 │   ├── models/                      # 훈련된 ML 모델들
 │   │   ├── item_classifier.pkl     # ✅ 품목 분류 모델
 │   │   ├── model_classes.json      # ✅ 카테고리 매핑
 │   │   └── vectorizer.pkl          # ✅ 텍스트 벡터화
-│   ├── utils/
-│   │   ├── barcode_lookup.py       # DB 캐싱 + 외부 API 연동
-│   │   └── expiry_logic.py         # 영수증 OCR 처리 로직
 │   └── data/
 │       └── categories_proper.csv   # ✅ 카테고리 마스터 데이터
 │
@@ -106,14 +111,46 @@ scanner-project/
 1.  **프론트엔드 실행 및 모듈**: 
     - 실행: `app/` 참고
     - 스캔 모듈: `app/components/scan/README.md` 참고
-2.  **백엔드 API 서버**: `backend/` 참고
+2.  **백엔드 API 서버**:
+    - 실행: `cd backend && source .venv/Scripts/activate && python -m api.app`
+    - 구조: `backend/api/routes/` 블루프린트 기반
+    - API 문서: 다음 엔드포인트 제공
+      - `GET /health` - 상태 확인
+      - `POST /upload_receipt*` - 영수증 OCR
+      - `POST /lookup_barcode` - 바코드 조회
+      - `POST /inventory/batch_add` - 재고 일괄 추가
 3.  **프론트엔드 계획**: `docs/프론트엔드/frontend_plan.md` 참고
 4.  **영수증 OCR 계획**: `docs/프론트엔드/receipt_ocr_plan.md` 참고
 5.  **데이터베이스 스키마**: `docs/스키마/schema.md` 참고
 6.  **MLOps 전략 및 개선사항**: `docs/log.md` 참고
 
+### 🏗️ 백엔드 리팩토링 완료 (2025-11-16)
+
+#### ✅ 완료된 리팩토링 작업
+- **모듈화 구조 도입**: Flask Blueprint 기반 아키텍처
+- **서비스 레이어 분리**: Clova OCR 비즈니스 로직 독립화
+- **코드 크기 감축**: `app.py` 33,373라인 → 40라인 (99.9% 감소)
+- **유지보수성 향상**: 기능별 명확한 책임 분리
+
+#### 📂 새로운 구조
+```
+backend/api/
+├── app.py              # Flask 앱 초기화 및 블루프린트 등록
+├── ocr_service.py      # Clova OCR 관련 10개 함수
+└── routes/             # 블루프린트 기반 라우트
+    ├── ocr.py          # 영수증 관련 API
+    ├── barcode.py      # 바코드 조회 API  
+    └── inventory.py    # 재고 관리 API
+```
+
+#### 🎯 리팩토링 효과
+- **확장성**: 새 기능 추가 시 블루프린트만 생성
+- **테스트 용이성**: 각 모듈 독립적 테스트 가능
+- **개발 효율**: 기능별 협업 용이
+- **가독성**: 역할별 명확한 파일 분리
+
 ### 🔍 현재 상태 요약
-- **🟢 양호**: 백엔드 API 준비 완료, 모듈화 시작
+- **🟢 완료**: 백엔드 리팩토링, 모듈화 구조 도입, API 테스트 통과
 - **🟡 진행 중**: 프론트엔드 리팩토링, 영수증 OCR UI 구현
 - **🔵 계획**: MLOps 피드백 시스템, 오프라인 모드
 

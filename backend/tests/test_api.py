@@ -1,10 +1,5 @@
 import requests
 import json
-import sys
-import os
-
-# API에서 가져올 수 있도록 부모 디렉토리를 경로에 추가
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 # Flask 서버 주소 (로컬에서 테스트할 경우)
 BASE_URL = 'https://gongmo-backend.onrender.com'

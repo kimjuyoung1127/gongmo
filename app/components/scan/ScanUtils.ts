@@ -37,6 +37,7 @@ export type ReceiptData = ReceiptResponse & {
 };
 
 // --- 상수 ---
+// PRODUCTION: https://gongmo-backend.onrender.com (언제든 사용 가능)
 export const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://gongmo-backend.onrender.com';
 
 // --- 유틸리티 함수 ---
