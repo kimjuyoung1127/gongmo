@@ -33,8 +33,8 @@ def train_final_model():
     print("최종 모델 학습 시작...")
     
     # 데이터셋 로드
-    dataset_path = 'data/food_dataset_v4_clean.csv'
-    models_dir = 'models'
+    dataset_path = 'data/food_dataset_v5_combined.csv'
+    models_dir = 'api/models'
     os.makedirs(models_dir, exist_ok=True)
     
     try:

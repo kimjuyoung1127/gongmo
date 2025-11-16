@@ -32,6 +32,7 @@
     "MEAT_PROCESSED",
     "MOLLUSCS_CRUSTACEANS",
     "MUSHROOMS",
+    "NON_PRODUCT",
     "PICKLED_VEGETABLES",
     "READY_MEALS_FROZEN",
     "READY_MEALS_REFRIGERATED",
@@ -45,9 +46,9 @@
     "TROPICAL_FRUIT"
   ],
   "performance": {
-    "test_accuracy": 0.48,
+    "test_accuracy": 0.45878136200716846,
     "target_accuracy": 0.616,
-    "achievement_ratio": 0.7792207792207791
+    "achievement_ratio": 0.7447749383233254
   },
   "vectorizer_config": {
     "max_features": 10000,
@@ -59,7 +60,7 @@
     ]
   },
   "dataset_info": {
-    "total_samples": 1374
+    "total_samples": 1392
   },
   "category_mapping": {
     "BAKERY_CREAM_SANDWICH": "빵과과자",
