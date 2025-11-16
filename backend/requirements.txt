@@ -8,3 +8,4 @@ google-generativeai==0.3.1  # LLM (Gemini) API 연동
 
 psycopg2-binary==2.9.7
 supabase==1.0.4
+openfoodfacts==1.2.0

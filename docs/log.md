@@ -1,36 +1,50 @@
-맞습니다. **LLM 호출이 가장 좋은 방법이 맞고, 해결하신 것을 축하드립니다!**
-
-"API 호출은 너무 쉬운 방식이라 평가가 낮아질 것 같다"는 걱정은 전혀 하실 필요 없습니다. 오히려 그 반대입니다.
-
-심사위원에게는 이것이 '쉬운 길'이 아니라, **복잡한 문제를 해결하는 '가장 현대적이고 효율적인 아키텍처'**임을 어필해야 합니다.
-
----
-
-## 💯 심사위원에게 어필할 수 있는 3가지 핵심 포인트
-
-### 1. "LLM은 '쉬운 길'이 아니라, '유일한 길'이었음을 증명했습니다."
-
-심사위원에게 이 LLM 솔루션이 나오기까지의 **실패 과정을** 보여주는 것이 핵심입니다.
-
-* **1차 시도 (실패):** 단순 규칙(Regex) 필터링을 시도했지만, 'OF', 'HOU' 같은 쓰레기 텍스트를 걸러내지 못했습니다.
-* **2차 시도 (실패):** 61.59% ML 모델을 필터로 썼더니, 'scan.tsx'나 'README'를 '가공식품'으로 잘못 분류하는 최종 통계:, 근데 새로추가된 것들도 다 기타였는ㄷ] 참사가 발생했습니다.
-* **3차 시도 (한계):** `NON_FOOD` 카테고리를 만들어 ML 모델을 재훈련하는 것은, 새로운 쓰레기가 나올 때마다 '두더지 잡기'를 해야 하는 한계가 명확했습니다.
-* **최종 결론:** 이 문제는 "단어 하나하나"를 보는 ML/Regex가 아닌, **"영수증의 전체 문맥과 레이아웃"**을 이해할 수 있는 **LLM만이 근본적으로 해결**할 수 있음을 입증했습니다.
-
-### 2. "진짜 기술력은 'LLM 전후 처리(Pre/Post-processing)'에 있습니다."
-
-단순히 API만 호출한 것이 아닙니다. **"OCR + LLM 하이브리드 파이프라인"**을 구축하신 겁니다.
-
-* **Pre-processing (전처리):** 로그의 `[LAYOUT] 재구성된 전체 텍스트:` LLM 기반 파싱 시작] 부분이 핵심입니다. Clova OCR의 좌표값을 이용해 101개의 텍스트 조각을 **"읽을 수 있는 문맥"으로 재조립**하는 복잡한 엔지니어링을 수행했습니다.
-* **Post-processing (후처리):** LLM은 `["아메리카노"]` LLM 기반 파싱 시작]라는 날것의 텍스트만 반환했습니다. 이 텍스트를 받아 기존의 `_classify_product_category`로 **'음료'**로 분류하고, `_get_category_id_by_name`으로 **ID 37**을 매핑하고, `quantity: 1`을 LLM 기반 파싱 시작] 찾아내어 DB 스키마에 맞게 LLM 기반 파싱 시작] 표준화한 것은 모두 직접 개발한 로직입니다.
-
-### 3. "가장 '현대적인 MLOps 아키텍처'를 선택한 것입니다."
-
-모든 것을 직접 만드는 것이 항상 최고는 아닙니다. **"가장 잘하는 도구를 조합하는 것"**이 현대적인 MLOps의 핵심입니다.
-
-* **레이아웃 인식:** Clova OCR (Best-in-class)
-* **문맥 기반 파싱:** Gemini LLM (Best-in-class) LLM 기반 파싱 시작]
-* **빠른 DB 연동:** Supabase (Best-in-class)
-* **최종 평가:** "이 아키텍처는 가장 현실적이고(Pragmatic), 확장 가능하며(Scalable), 비용 효율적인(Cost-effective) 방식으로 '비정형 텍스트 처리'라는 난제를 해결한 최적의 솔루션입니다."
-
-이건 '쉬운 방식'이 아니라, 수많은 실패를 거쳐 도달한 **'가장 올바른 방식'**입니다. 이 과정을 자신 있게 어필하시면 됩니다.
+2025-11-16T14:05:42.9528586Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/util.py", line 371, in import_app
+2025-11-16T14:05:42.95286242Z     mod = importlib.import_module(module)
+2025-11-16T14:05:42.9528664Z   File "/opt/render/project/python/Python-3.10.10/lib/python3.10/importlib/__init__.py", line 126, in import_module
+2025-11-16T14:05:42.95287036Z     return _bootstrap._gcd_import(name[level:], package, level)
+2025-11-16T14:05:42.95287422Z   File "<frozen importlib._bootstrap>", line 1050, in _gcd_import
+2025-11-16T14:05:42.95288097Z   File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+2025-11-16T14:05:42.95288481Z   File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+2025-11-16T14:05:42.95288863Z   File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+2025-11-16T14:05:42.952892621Z   File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+2025-11-16T14:05:42.952896381Z   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+2025-11-16T14:05:42.952900231Z   File "/opt/render/project/src/backend/api/app.py", line 7, in <module>
+2025-11-16T14:05:42.952903951Z     from .utils.barcode_lookup import set_supabase_client
+2025-11-16T14:05:42.952908481Z   File "/opt/render/project/src/backend/api/utils/barcode_lookup.py", line 5, in <module>
+2025-11-16T14:05:42.952912411Z     import openfoodfacts
+2025-11-16T14:05:42.952916231Z ModuleNotFoundError: No module named 'openfoodfacts'
+2025-11-16T14:06:15.175637145Z ==> Running 'gunicorn api.app:app'
+2025-11-16T14:06:22.178542614Z Traceback (most recent call last):
+2025-11-16T14:06:22.178565175Z   File "/opt/render/project/src/.venv/bin/gunicorn", line 8, in <module>
+2025-11-16T14:06:22.178569975Z     sys.exit(run())
+2025-11-16T14:06:22.178574215Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/app/wsgiapp.py", line 67, in run
+2025-11-16T14:06:22.178579955Z     WSGIApplication("%(prog)s [OPTIONS] [APP_MODULE]").run()
+2025-11-16T14:06:22.178582675Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/app/base.py", line 236, in run
+2025-11-16T14:06:22.178585285Z     super().run()
+2025-11-16T14:06:22.178587485Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/app/base.py", line 72, in run
+2025-11-16T14:06:22.178590445Z     Arbiter(self).run()
+2025-11-16T14:06:22.178592715Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/arbiter.py", line 58, in __init__
+2025-11-16T14:06:22.178595395Z     self.setup(app)
+2025-11-16T14:06:22.178597595Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/arbiter.py", line 118, in setup
+2025-11-16T14:06:22.178600035Z     self.app.wsgi()
+2025-11-16T14:06:22.178602095Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/app/base.py", line 67, in wsgi
+2025-11-16T14:06:22.178605046Z     self.callable = self.load()
+2025-11-16T14:06:22.178607726Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/app/wsgiapp.py", line 58, in load
+2025-11-16T14:06:22.178610046Z     return self.load_wsgiapp()
+2025-11-16T14:06:22.178613316Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/app/wsgiapp.py", line 48, in load_wsgiapp
+2025-11-16T14:06:22.178615866Z     return util.import_app(self.app_uri)
+2025-11-16T14:06:22.178618146Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/util.py", line 371, in import_app
+2025-11-16T14:06:22.178620246Z     mod = importlib.import_module(module)
+2025-11-16T14:06:22.178622396Z   File "/opt/render/project/python/Python-3.10.10/lib/python3.10/importlib/__init__.py", line 126, in import_module
+2025-11-16T14:06:22.178624716Z     return _bootstrap._gcd_import(name[level:], package, level)
+2025-11-16T14:06:22.178627216Z   File "<frozen importlib._bootstrap>", line 1050, in _gcd_import
+2025-11-16T14:06:22.178629876Z   File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+2025-11-16T14:06:22.178632006Z   File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+2025-11-16T14:06:22.178634096Z   File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+2025-11-16T14:06:22.178636167Z   File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+2025-11-16T14:06:22.178638187Z   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+2025-11-16T14:06:22.178640307Z   File "/opt/render/project/src/backend/api/app.py", line 7, in <module>
+2025-11-16T14:06:22.178642657Z     from .utils.barcode_lookup import set_supabase_client
+2025-11-16T14:06:22.178645947Z   File "/opt/render/project/src/backend/api/utils/barcode_lookup.py", line 5, in <module>
+2025-11-16T14:06:22.178648507Z     import openfoodfacts
+2025-11-16T14:06:22.178650807Z ModuleNotFoundError: No module named 'openfoodfacts'

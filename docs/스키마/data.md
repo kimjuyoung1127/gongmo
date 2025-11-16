@@ -119,71 +119,9 @@
 
 ---
 
-# 🧠 **Supabase 스키마 제안 (v2.0)**
+## 📝 LLM 아키텍처 전환에 따른 업데이트 제안 (2025-11-16)
 
-바코드 스캔 기능 추가에 따라, `inventory` 테이블에 `barcode` 컬럼을 추가하는 것을 권장합니다.
-
-```sql
--- 기존 테이블 (변경 없음)
-CREATE TABLE categories (
-  id BIGSERIAL PRIMARY KEY,
-  category_code TEXT UNIQUE NOT NULL,
-  category_name_kr TEXT,
-  default_expiry_days INT NOT NULL,
-  description TEXT
-);
-
-CREATE TABLE expiry_rules (
-  id BIGSERIAL PRIMARY KEY,
-  match_type TEXT CHECK (match_type IN ('exact', 'regex')),
-  pattern TEXT NOT NULL,
-  override_days INT NOT NULL,
-  notes TEXT
-);
-
--- 영수증 및 품목 테이블 (변경 없음)
-CREATE TABLE receipts (
-    id SERIAL PRIMARY KEY,
-    image_url TEXT,
-    uploaded_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE receipt_items (
-    id SERIAL PRIMARY KEY,
-    receipt_id INTEGER REFERENCES receipts(id),
-    name TEXT NOT NULL,
-    category_id INTEGER REFERENCES categories(id),
-    expiry_date DATE,
-    added_to_inventory BOOLEAN DEFAULT FALSE
-);
-
-
--- **핵심: 재고 관리 테이블 (바코드 컬럼 추가)**
-CREATE TABLE inventory (
-    id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL,
-    category_id INTEGER REFERENCES categories(id),
-    expiry_date DATE NOT NULL,
-    quantity INTEGER DEFAULT 1,
-    -- 바코드(GTIN) 값. 바코드 스캔으로 등록 시 이 컬럼에 저장
-    barcode TEXT, 
-    added_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
----
-
-# 📦 **활용 예시**
-
-```python
-# rule-based expiry override example
-import re
-
-def apply_expiry_rules(item_name: str, base_expiry: int, rules: list[dict]) -> int:
-    for rule in rules:
-        if rule["match_type"] == "regex" and re.search(rule["pattern"], item_name, re.IGNORECASE):
-            return rule["override_days"]
-        if rule["match_type"] == "exact" and rule["pattern"] == item_name:
-            return rule["override_days"]
-    return base_expiry
-```
+- [ ] **상단 "전략 변경 안내" 섹션 업데이트:**
+  - [ ] `Label Studio`, `MLflow`, `DVC`를 활용한 AI 모델 재학습 파이프라인이 **OCR 품목 분류에는 더 이상 직접적으로 적용되지 않음**을 명시. 이 MLOps 파이프라인은 향후 다른 AI 기능(예: 이미지 기반 카테고리 분류)에 활용될 수 있음을 언급.
+- [ ] **"파일 구조 제안" 섹션 수정:**
+  - [ ] `food_dataset_v2.csv` (학습용 라벨 데이터)가 현재 LLM 기반 OCR 처리의 핵심 요소가 아님을 명시.
