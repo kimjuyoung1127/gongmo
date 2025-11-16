@@ -54,10 +54,14 @@
    - `app/lib/utils.ts`: D-Day 계산 함수
    - `app/lib/categories.ts`: 카테고리 상수 정의
    - `app/components/InventoryCard.tsx`: 재고 카드 컴포넌트
+   - `app/components/scan/ModeToggle.tsx`: 스캔 화면 모드 전환 UI
+   - `app/components/scan/PhotoConfirmModal.tsx`: 사진 확인 모달 UI
+   - `app/components/scan/ScanUtils.ts`: 스캔 관련 공통 유틸리티 함수
 
 2. **수정된 파일**
    - `app/lib/supabase.ts`: 데이터 로드/업데이트 함수 추가
    - `app/app/(tabs)/index.tsx`: 전체 재고 목록 화면
+   - `app/app/(tabs)/scan.tsx`: 스캔 화면 (모듈화 업데이트)
 
 3. **문서 업데이트**
    - `docs/progress.md`: 완료 항목 체크

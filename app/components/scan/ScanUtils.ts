@@ -37,7 +37,7 @@ export type ReceiptData = ReceiptResponse & {
 };
 
 // --- 상수 ---
-export const BACKEND_URL = 'http://172.30.1.59:5000';
+export const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://your-backend-name.onrender.com';
 
 // --- 유틸리티 함수 ---
 export const getCategoryIdByName = async (categoryName: string): Promise<number | null> => {

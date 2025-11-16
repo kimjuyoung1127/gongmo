@@ -9,6 +9,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- 추가된 함수: updated_at 컬럼 업데이트 (다른 이름)
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ===== 2. PUBLIC TABLES (AI의 '뇌' - 공용 데이터) =====
 
 -- 🗂️ ① Category Master
@@ -45,28 +54,38 @@ FOR SELECT USING (true);
 
 -- 📦 제품 정보 (바코드 조회 결과 캐싱용)
 CREATE TABLE public.products (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
-    
+
     -- [핵심] 바코드(GTIN) 값. 중복 불가.
     barcode TEXT UNIQUE NOT NULL,
-    
+
     -- 앱에 표시될 이름
     product_name TEXT NOT NULL,
-    
+
     -- 카테고리 참조 (categories.id)
     category_id BIGINT REFERENCES public.categories(id),
-    
+
     -- 제조사/판매사
-    manufacturer TEXT,
-    
+    manufacturer TEXT DEFAULT '알 수 없음',
+
     -- 데이터 소스 ('foodsafety', 'openfoodfacts', 'user_contribution')
-    source TEXT,
-    
+    source TEXT DEFAULT 'unknown',
+
     -- 검증 여부 (사용자 기여 데이터의 경우)
     verified BOOLEAN DEFAULT FALSE
 );
+
+-- ===== 2.6. 프론트엔드 모듈화 업데이트 안내 [✅ 2025-11-15 완료]
+
+/*
+2025-11-15에 프론트엔드의 대규모 scan.tsx 파일이 components/scan/ 디렉토리로 기능별로 분리되었습니다.
+- ModeToggle.tsx: 바코드/영수증 모드 전환 UI
+- PhotoConfirmModal.tsx: 사진 확인 모달 UI
+- ScanUtils.ts: 공통 유틸리티 함수 및 타입 정의
+이로 인해 코드의 유지보수성과 확장성이 향상되었습니다.
+*/
 
 -- RLS 활성화
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
@@ -135,7 +154,7 @@ CREATE TABLE public.inventory (
     updated_at TIMESTAMPTZ DEFAULT now(),
     
     -- [보안] 이 재고의 '소유자'
-    user_id UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id UUID DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
     
     -- [연결] (선택) 어떤 영수증 품목에서 왔는지 추적
     receipt_item_id BIGINT REFERENCES public.receipt_items(id) ON DELETE SET NULL,
@@ -160,7 +179,19 @@ CREATE TABLE public.inventory (
     expiry_date DATE NOT NULL, 
     
     -- 'active' (신선), 'consumed' (소비됨), 'expired' (폐기)
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'consumed', 'expired')) 
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'consumed', 'expired')),
+    
+    -- [신규 추가] 데이터 소스 타입 ('receipt', 'manual', 'barcode')
+    source_type TEXT DEFAULT 'receipt',
+    
+    -- [신규 추가] 매장 이름
+    store_name TEXT,
+    
+    -- [신규 추가] 원본 텍스트 (OCR 결과 등)
+    raw_text TEXT,
+    
+    -- [신규 추가] 영수증 이미지 URL
+    receipt_image_url TEXT
 );
 
 -- RLS 활성화

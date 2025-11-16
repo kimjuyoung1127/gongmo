@@ -14,7 +14,10 @@
 
 ## 핵심 구현 파일
 
-- `app/(tabs)/scan.tsx`: 바코드 스캔 및 재고 등록 UI/로직 구현
+- `app/(tabs)/scan.tsx`: 바코드 스캔 및 재고 등록 UI/로직 구현 (모듈화 완료)
+- `app/components/scan/ModeToggle.tsx`: 스캔 모드 전환 UI 분리
+- `app/components/scan/PhotoConfirmModal.tsx`: 사진 확인 모달 UI 분리
+- `app/components/scan/ScanUtils.ts`: 스캔 관련 공통 유틸리티 함수 분리
 - `backend/api/app.py`: `/lookup_barcode` API 엔드포인트
 - `backend/utils/barcode_lookup.py`: 바코드 조회 로직
 - `backend/utils/expiry_logic.py`: 유통기한 계산 로직

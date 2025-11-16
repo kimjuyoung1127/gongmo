@@ -24,6 +24,7 @@
     - [x] `app/(tabs)/scan.tsx` 파일 생성 ('스캔' 탭 화면) [✅ 2025-11-13 QR 코드 필터링 추가]
     - [x] `app/(tabs)/settings.tsx` 파일 생성 ('설정' 탭 화면)
     - [x] `app/_layout.tsx` 파일 생성 (최상위 레이아웃 설정)
+    - [x] `app/components/scan/` 디렉토리 생성 및 모듈화 [✅ 2025-11-15 완료]
 - [x] **카메라 권한 설정:** `react-native-vision-camera` 사용을 위한 권한 요청 로직 추가 (`scan.tsx`에 구현 완료)
 
 ---

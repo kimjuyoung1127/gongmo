@@ -8,7 +8,7 @@ numpy==1.26.4               # ★ 핵심: 1.x 유지
 pandas==2.0.3
 scikit-learn==1.3.0
 
-opencv-python==4.8.1.78     # ★ headless, contrib 동시 설치 금지
+opencv-python-headless==4.8.1.78     # ★ headless용 (GUI 제거)
 Pillow==10.0.1
 
 psycopg2-binary==2.9.7
