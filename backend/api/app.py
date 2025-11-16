@@ -68,10 +68,18 @@ def call_clova_ocr(image_data):
         }
         
         print(f"[CLOVA] API 요청 준비 완료, 이미지 크기: {len(image_data)} bytes")
+        print(f"[CLOVA] 이미지 포맷 확인: jpg")
+        print(f"[CLOVA] Base64 데이터 길이: {len(image_base64)}")
+        print(f"[CLOVA] RequestId: scan_{int(time.time())}")
         
         print(f"[CLOVA] API URL: {CLOVA_OCR_API_URL}")
-        print(f"[CLOVA] Headers: {headers}")
+        print(f"[CLOVA] Headers: {{'X-OCR-SECRET': '***MASKED***', 'Content-Type': 'application/json'}}")
         print(f"[CLOVA] Timeout 설정: 60초")
+        
+        # 디버깅을 위해 요청 데이터 일부 출력
+        print(f"[CLOVA] 요청 데이터 구조: {list(data.keys())}")
+        if 'images' in data and data['images']:
+            print(f"[CLOVA] 첫번째 이미지 키: {list(data['images'][0].keys())}")
         
         response = requests.post(CLOVA_OCR_API_URL, headers=headers, json=data, timeout=60)
         
@@ -79,7 +87,11 @@ def call_clova_ocr(image_data):
             print(f"[CLOVA] 클로바 OCR API 호출 성공")
             return response.json()
         else:
-            print(f"[CLOVA] 클로바 OCR API 오류: {response.status_code}, 응답: {response.text}")
+            print(f"[CLOVA] 클로바 OCR API 오류: {response.status_code}")
+            print(f"[CLOVA] 오류 응답: {response.text}")
+            print(f"[CLOVA] 요청 헤더: {headers}")
+            print(f"[CLOVA] 환경 변수 확인 - URL: {CLOVA_OCR_API_URL}")
+            print(f"[CLOVA] 환경 변수 확인 - SECRET 설정 여부: {'YES' if CLOVA_OCR_SECRET_KEY else 'NO'}")
             return None
             
     except Exception as e:
