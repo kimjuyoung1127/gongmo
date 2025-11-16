@@ -1,11 +1,8 @@
-import cv2
-import numpy as np
 import requests
 import json
 import csv
 import os
 from datetime import datetime, timedelta
-from ml.train import predict_item_category_and_expiry
 
 # --- 카테고리 매핑 헬퍼 함수 (DB 기반) ---
 _category_map_by_code_cache = None

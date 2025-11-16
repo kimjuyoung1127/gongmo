@@ -1,34 +1,50 @@
-2025-11-16T14:36:54.565338646Z ==> Downloading cache...
-2025-11-16T14:36:54.614852647Z ==> Cloning from https://github.com/kimjuyoung1127/gongmo
-2025-11-16T14:37:03.022383147Z ==> Checking out commit 1d2f6c44717b912a02a9e0d60d588b8b82683fe4 in branch main
-2025-11-16T14:37:11.893247526Z ==> Downloaded 737MB in 3s. Extraction took 7s.
-2025-11-16T14:37:44.420812548Z ==> Installing Python version 3.10.10...
-2025-11-16T14:37:50.244067212Z ==> Using Python version 3.10.10 via environment variable PYTHON_VERSION
-2025-11-16T14:37:50.267967399Z ==> Docs on specifying a Python version: https://render.com/docs/python-version
-2025-11-16T14:37:54.14257874Z ==> Using Poetry version 2.1.3 (default)
-2025-11-16T14:37:54.186561051Z ==> Docs on specifying a Poetry version: https://render.com/docs/poetry-version
-2025-11-16T14:37:54.261537035Z ==> Running build command 'pip install -r requirements.txt'...
-2025-11-16T14:37:54.855240044Z Collecting Flask[async]==2.3.3
-2025-11-16T14:37:54.857348775Z   Using cached flask-2.3.3-py3-none-any.whl (96 kB)
-2025-11-16T14:37:54.897094553Z Collecting Flask-CORS==4.0.0
-2025-11-16T14:37:54.898688472Z   Using cached Flask_Cors-4.0.0-py2.py3-none-any.whl (14 kB)
-2025-11-16T14:37:54.954515405Z Collecting requests==2.31.0
-2025-11-16T14:37:54.956097924Z   Using cached requests-2.31.0-py3-none-any.whl (62 kB)
-2025-11-16T14:37:54.989249739Z Collecting python-dotenv==1.0.0
-2025-11-16T14:37:54.990711645Z   Using cached python_dotenv-1.0.0-py3-none-any.whl (19 kB)
-2025-11-16T14:37:55.029933549Z Collecting gunicorn==21.2.0
-2025-11-16T14:37:55.031546379Z   Using cached gunicorn-21.2.0-py3-none-any.whl (80 kB)
-2025-11-16T14:37:55.060660675Z Collecting google-generativeai==0.3.1
-2025-11-16T14:37:55.062534661Z   Using cached google_generativeai-0.3.1-py3-none-any.whl (146 kB)
-2025-11-16T14:37:55.242824146Z Collecting psycopg2-binary==2.9.7
-2025-11-16T14:37:55.252702249Z   Using cached psycopg2_binary-2.9.7-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.0 MB)
-2025-11-16T14:37:55.317502013Z Collecting supabase==1.0.4
-2025-11-16T14:37:55.31901819Z   Using cached supabase-1.0.4-py3-none-any.whl (11 kB)
-2025-11-16T14:37:55.415647337Z ERROR: Ignored the following versions that require a different python version: 0.1.4 Requires-Python >=3.8.1,<=3.10
-2025-11-16T14:37:55.415882683Z ERROR: Could not find a version that satisfies the requirement openfoodfacts==1.2.0 (from versions: 0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.1.5, 0.1.6, 0.1.7, 0.1.8, 0.1.9, 0.1.10, 0.1.11, 0.1.12, 0.2.0, 0.2.1, 0.3.0, 0.4.0, 1.0.0, 1.0.1, 1.0.2, 1.1.0, 1.1.1, 1.1.2, 1.1.3, 1.1.4, 1.1.5, 2.0.0, 2.1.0, 2.2.0, 2.3.0, 2.3.1, 2.3.2, 2.3.3, 2.3.4, 2.4.0, 2.5.0, 2.5.1, 2.5.2, 2.6.0, 2.6.1, 2.7.0, 2.8.0, 2.9.0, 3.0.0, 3.1.0)
-2025-11-16T14:37:55.416123189Z ERROR: No matching distribution found for openfoodfacts==1.2.0
-2025-11-16T14:37:55.472476235Z 
-2025-11-16T14:37:55.472500026Z [notice] A new release of pip available: 22.3.1 -> 25.3
-2025-11-16T14:37:55.472505555Z [notice] To update, run: pip install --upgrade pip
-2025-11-16T14:37:55.569555123Z ==> Build failed 😞
-2025-11-16T14:37:55.569626444Z ==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+2025-11-16T14:43:10.531542585Z   Using cached grpcio_status-1.63.2-py3-none-any.whl (14 kB)
+2025-11-16T14:43:10.541696955Z   Using cached grpcio_status-1.63.0-py3-none-any.whl (14 kB)
+2025-11-16T14:43:10.551750882Z   Using cached grpcio_status-1.62.3-py3-none-any.whl (14 kB)
+2025-11-16T14:43:10.877162798Z Installing collected packages: strenum, websockets, urllib3, typing_extensions, tqdm, sniffio, six, python-dotenv, pyasn1, psycopg2-binary, protobuf, packaging, MarkupSafe, itsdangerous, idna, h11, click, charset-normalizer, certifi, cachetools, blinker, annotated-types, Werkzeug, typing-inspection, rsa, requests, python-dateutil, pydantic-core, pyasn1-modules, proto-plus, Jinja2, gunicorn, grpcio, googleapis-common-protos, exceptiongroup, deprecation, asgiref, realtime, pydantic, grpcio-status, google-auth, Flask, anyio, openfoodfacts, httpcore, google-api-core, Flask-CORS, httpx, supafunc, storage3, postgrest, gotrue, google-ai-generativelanguage, supabase, google-generativeai
+2025-11-16T14:43:22.864122578Z Successfully installed Flask-2.3.3 Flask-CORS-4.0.0 Jinja2-3.1.6 MarkupSafe-3.0.3 Werkzeug-3.1.3 annotated-types-0.7.0 anyio-4.11.0 asgiref-3.10.0 blinker-1.9.0 cachetools-6.2.2 certifi-2025.11.12 charset-normalizer-3.4.4 click-8.3.1 deprecation-2.1.0 exceptiongroup-1.3.0 google-ai-generativelanguage-0.4.0 google-api-core-2.28.1 google-auth-2.43.0 google-generativeai-0.3.1 googleapis-common-protos-1.72.0 gotrue-1.3.1 grpcio-1.76.0 grpcio-status-1.62.3 gunicorn-21.2.0 h11-0.14.0 httpcore-0.17.3 httpx-0.24.1 idna-3.11 itsdangerous-2.2.0 openfoodfacts-3.1.0 packaging-25.0 postgrest-0.10.8 proto-plus-1.26.1 protobuf-4.25.8 psycopg2-binary-2.9.7 pyasn1-0.6.1 pyasn1-modules-0.4.2 pydantic-2.12.4 pydantic-core-2.41.5 python-dateutil-2.9.0.post0 python-dotenv-1.0.0 realtime-1.0.6 requests-2.31.0 rsa-4.9.1 six-1.17.0 sniffio-1.3.1 storage3-0.5.4 strenum-0.4.15 supabase-1.0.4 supafunc-0.2.3 tqdm-4.67.1 typing-inspection-0.4.2 typing_extensions-4.15.0 urllib3-2.5.0 websockets-12.0
+2025-11-16T14:43:22.935434325Z 
+2025-11-16T14:43:22.935453196Z [notice] A new release of pip available: 22.3.1 -> 25.3
+2025-11-16T14:43:22.935456946Z [notice] To update, run: pip install --upgrade pip
+2025-11-16T14:43:25.486339224Z ==> Uploading build...
+2025-11-16T14:43:40.915186691Z ==> Uploaded in 11.1s. Compression took 4.4s
+2025-11-16T14:43:40.987481098Z ==> Build successful 🎉
+2025-11-16T14:43:42.928261123Z ==> Deploying...
+2025-11-16T14:44:25.861205881Z ModuleNotFoundError: No module named 'cv2'
+2025-11-16T14:44:45.651669358Z ==> Exited with status 1
+2025-11-16T14:44:45.665902126Z ==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+2025-11-16T14:44:52.833937684Z ==> Running 'gunicorn api.app:app'
+2025-11-16T14:45:00.335861824Z Traceback (most recent call last):
+2025-11-16T14:45:00.335890776Z   File "/opt/render/project/src/.venv/bin/gunicorn", line 8, in <module>
+2025-11-16T14:45:00.335897456Z     sys.exit(run())
+2025-11-16T14:45:00.335902936Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/app/wsgiapp.py", line 67, in run
+2025-11-16T14:45:00.335909427Z     WSGIApplication("%(prog)s [OPTIONS] [APP_MODULE]").run()
+2025-11-16T14:45:00.335913867Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/app/base.py", line 236, in run
+2025-11-16T14:45:00.335918207Z     super().run()
+2025-11-16T14:45:00.335934698Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/app/base.py", line 72, in run
+2025-11-16T14:45:00.335939169Z     Arbiter(self).run()
+2025-11-16T14:45:00.335943219Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/arbiter.py", line 58, in __init__
+2025-11-16T14:45:00.335947369Z     self.setup(app)
+2025-11-16T14:45:00.335951779Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/arbiter.py", line 118, in setup
+2025-11-16T14:45:00.335955829Z     self.app.wsgi()
+2025-11-16T14:45:00.3359598Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/app/base.py", line 67, in wsgi
+2025-11-16T14:45:00.3359644Z     self.callable = self.load()
+2025-11-16T14:45:00.33596841Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/app/wsgiapp.py", line 58, in load
+2025-11-16T14:45:00.3359725Z     return self.load_wsgiapp()
+2025-11-16T14:45:00.335977451Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/app/wsgiapp.py", line 48, in load_wsgiapp
+2025-11-16T14:45:00.335981461Z     return util.import_app(self.app_uri)
+2025-11-16T14:45:00.335985431Z   File "/opt/render/project/src/.venv/lib/python3.10/site-packages/gunicorn/util.py", line 371, in import_app
+2025-11-16T14:45:00.335989531Z     mod = importlib.import_module(module)
+2025-11-16T14:45:00.335993392Z   File "/opt/render/project/python/Python-3.10.10/lib/python3.10/importlib/__init__.py", line 126, in import_module
+2025-11-16T14:45:00.335997322Z     return _bootstrap._gcd_import(name[level:], package, level)
+2025-11-16T14:45:00.336001412Z   File "<frozen importlib._bootstrap>", line 1050, in _gcd_import
+2025-11-16T14:45:00.336006062Z   File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+2025-11-16T14:45:00.336010213Z   File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+2025-11-16T14:45:00.336014193Z   File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+2025-11-16T14:45:00.336018043Z   File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+2025-11-16T14:45:00.336021873Z   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+2025-11-16T14:45:00.336025723Z   File "/opt/render/project/src/backend/api/app.py", line 24, in <module>
+2025-11-16T14:45:00.336029924Z     from .utils.expiry_logic import set_supabase_client_for_categories
+2025-11-16T14:45:00.336034304Z   File "/opt/render/project/src/backend/api/utils/expiry_logic.py", line 1, in <module>
+2025-11-16T14:45:00.336038314Z     import cv2
+2025-11-16T14:45:00.336042304Z ModuleNotFoundError: No module named 'cv2'
