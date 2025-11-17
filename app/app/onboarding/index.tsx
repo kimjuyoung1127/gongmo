@@ -1,7 +1,8 @@
-import React from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Image } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native'
 import { useRouter } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import LottieView from 'lottie-react-native'
 
 // 화면 너비 가져오기
 const { width: screenWidth } = Dimensions.get('window')
@@ -9,6 +10,14 @@ const { width: screenWidth } = Dimensions.get('window')
 // 온보딩 첫 화면 - 앱의 주요 기능을 소개하고 사용자에게 시작 유도
 export default function OnboardingScreen() {
   const router = useRouter()
+  const [showOnboardingContent, setShowOnboardingContent] = useState(false)
+
+  // Lottie 애니메이션 완료 후 온보딩 콘텐츠 표시
+  const onAnimationComplete = () => {
+    setTimeout(() => {
+      setShowOnboardingContent(true)
+    }, 500) // 짧은 지연 후 콘텐츠 전환
+  }
 
   const handleStartPress = async () => {
     try {
@@ -20,12 +29,41 @@ export default function OnboardingScreen() {
     }
   }
 
+  // 초기 로딩 시 애니메이션 먼저 표시
+  useEffect(() => {
+    // 애니메이션이 없는 경우에도 콘텐츠 표시를 보장
+    const timer = setTimeout(() => {
+      if (!showOnboardingContent) {
+        setShowOnboardingContent(true)
+      }
+    }, 5000) // 5초 후에 강제로 콘텐츠 표시
+
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (!showOnboardingContent) {
+    // Lottie 애니메이션 표시
+    return (
+      <View style={styles.container}>
+        <View style={styles.animationContainer}>
+          <LottieView
+            source={require('../../assets/images/onboarding.json')}
+            autoPlay
+            loop={false}
+            resizeMode="contain"
+            style={styles.animation}
+            onAnimationFinish={onAnimationComplete}
+          />
+        </View>
+      </View>
+    )
+  }
+
+  // 기존 온보딩 콘텐츠
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <View style={styles.logoPlaceholder}>
-          <Text style={styles.logoText}>🥫</Text>
-        </View>
+        <Image source={require('../../assets/images/logo.png')} style={styles.logo} />
         <View style={styles.textContainer}>
           <Text style={styles.title}>
             영수증을 찍기만 하면,{"\n"}식비 관리까지 한 번에! 💡
@@ -80,6 +118,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 24,
   },
+  animationContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  animation: {
+    width: '130%',
+    height: '130%',
+  },
   content: {
     flex: 1,
     justifyContent: 'center',
@@ -89,18 +137,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     marginBottom: 32,
-  },
-  logoPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F0F0F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  logoText: {
-    fontSize: 40,
   },
   textContainer: {
     alignItems: 'center',
