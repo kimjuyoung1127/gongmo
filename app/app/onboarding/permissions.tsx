@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Linking } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
@@ -68,7 +69,7 @@ export default function PermissionsScreen() {
   const notificationGranted = notificationStatus === 'granted';
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.title}>앱 사용을 위해{"\n"}권한이 필요해요</Text>
         <Text style={styles.subtitle}>아래 권한을 허용해주세요</Text>
@@ -118,20 +119,20 @@ export default function PermissionsScreen() {
             )}
           </View>
         </View>
-      </View>
 
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.completeButton, !cameraGranted && styles.disabledButton]}
-          onPress={handleCompletePress}
-          disabled={!cameraGranted}
-        >
-          <Text style={styles.completeButtonText}>
-            카메라 권한만 허용하고 시작하기
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[styles.completeButton, !cameraGranted && styles.disabledButton]}
+            onPress={handleCompletePress}
+            disabled={!cameraGranted}
+          >
+            <Text style={styles.completeButtonText}>
+              카메라 권한만 허용하고 시작하기
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   )
 }
 
@@ -223,8 +224,8 @@ const styles = StyleSheet.create({
     color: '#666666',
   },
   footer: {
-    paddingBottom: 32,
     paddingTop: 16,
+    paddingBottom: 16, // Added some padding but SafeAreaView will handle the safe area
   },
   completeButton: {
     backgroundColor: '#0064FF',

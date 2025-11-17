@@ -2,11 +2,14 @@ import React, { useMemo, useState, useEffect } from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
+import * as Haptics from 'expo-haptics'
 import { useAuth } from '../../hooks/useAuth'
 import { useDemoData } from '../../hooks/useDemoData'
 import InfoCard from '../../components/InfoCard'
 import FixedScanButton from '../../components/FixedScanButton'
 import LoginPromptBanner from '../../components/LoginPromptBanner'
+import DemoGuideModal from '../../components/DemoGuideModal'
+import InventoryDetailModal from '../../components/InventoryDetailModal'
 import { loadActiveInventory, InventoryItem } from '../../lib/supabase'
 
 // 유틸리티 함수
@@ -23,10 +26,22 @@ const calculateDdayStable = (expiryDate: string): number => {
 export default function InventoryScreen() {
   const router = useRouter()
   const { session } = useAuth()
-  const { demoInventory, stats } = useDemoData()
+  const { demoInventory, stats, storyGroups } = useDemoData()
 
   const [realInventory, setRealInventory] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(false)
+
+  // Demo guide modal state
+  const [guideVisible, setGuideVisible] = useState(false)
+  const [guideType, setGuideType] = useState<'expiry' | 'storage' | 'recipe'>('expiry')
+
+  // Inventory detail modal state
+  const [inventoryDetailVisible, setInventoryDetailVisible] = useState(false)
+
+  // Idle state for animation hint
+  const [idleTimeout, setIdleTimeout] = useState<NodeJS.Timeout | null>(null)
+  const [showIdleHint, setShowIdleHint] = useState(false)
+  const [idleItem, setIdleItem] = useState<any>(null)
 
   // 실제 데이터 로드 (로그인된 경우)
   const loadRealInventory = async () => {
@@ -42,6 +57,62 @@ export default function InventoryScreen() {
       setLoading(false)
     }
   }
+
+  // 아이템 클릭 핸들러 - 데모 모드일 때는 가이드 모달, 실제 모드일 때는 상세 정보
+  const handleItemPress = (item: any, type: 'expiry' | 'storage' | 'recipe') => {
+    if (!session) {
+      // 데모 모드(비로그인) -> 가이드 모달 띄우기
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // 햅틱 피드백
+      setGuideType(type);
+      setGuideVisible(true);
+    } else {
+      // 실제 모드(로그인) -> 상세 페이지 이동 (추후 구현)
+      console.log('상세 페이지 이동');
+    }
+  };
+
+  // CTA 버튼 핸들러 - 데모 모드에서 로그인 유도
+  const handleCTAPress = () => {
+    setGuideVisible(false);
+    // 로그인 화면으로 이동
+    router.replace('/sign-in');
+  };
+
+  // Handle showing inventory detail modal
+  const showInventoryDetail = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // 햅틱 피드백
+    setInventoryDetailVisible(true);
+  };
+
+  // 아이들 타이머 리셋 함수
+  const resetIdleTimer = () => {
+    if (idleTimeout) {
+      clearTimeout(idleTimeout);
+    }
+
+    // 3초 후에 아이들 상태 활성화
+    const timeout = setTimeout(() => {
+      // 데모 모드이고 아이템이 있으면 첫 번째 아이템에 힌트 표시
+      if (!session && expiringItems.length > 0) {
+        setShowIdleHint(true);
+        setIdleItem(expiringItems[0]);
+      }
+    }, 3000);
+
+    setIdleTimeout(timeout);
+  };
+
+  // 터치 이벤트 발생 시 타이머 리셋
+  useEffect(() => {
+    // 컴포넌트 마운트 시 타이머 시작
+    resetIdleTimer();
+
+    return () => {
+      if (idleTimeout) {
+        clearTimeout(idleTimeout);
+      }
+    };
+  }, [expiringItems, session]);
 
   // 세션 상태가 변경될 때마다 실제 데이터 로드
   useEffect(() => {
@@ -93,23 +164,25 @@ export default function InventoryScreen() {
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* 카드 1: 오늘의 식품 현황 */}
-        <InfoCard
-          emoji="💡"
-          title="오늘의 식품 현황"
-          subtitle={`냉장 ${currentStats.refrigerated}개 | 냉동 ${currentStats.frozen}개 | 실온 ${currentStats.room_temp}개`}
-        >
-          <View style={styles.quickStats}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{inventory.length}</Text>
-              <Text style={styles.statLabel}>총재고</Text>
+        <TouchableOpacity onPress={showInventoryDetail} activeOpacity={0.8}>
+          <InfoCard
+            emoji="💡"
+            title="오늘의 식품 현황"
+            subtitle={`냉장 ${currentStats.refrigerated}개 | 냉동 ${currentStats.frozen}개 | 실온 ${currentStats.room_temp}개`}
+          >
+            <View style={styles.quickStats}>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{inventory.length}</Text>
+                <Text style={styles.statLabel}>총재고</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, styles.warningText]}>{currentStats.expiring}</Text>
+                <Text style={styles.statLabel}>임박</Text>
+              </View>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={[styles.statNumber, styles.warningText]}>{currentStats.expiring}</Text>
-              <Text style={styles.statLabel}>임박</Text>
-            </View>
-          </View>
-        </InfoCard>
+          </InfoCard>
+        </TouchableOpacity>
 
         {/* 카드 2: 소비기한 임박 */}
         <InfoCard
@@ -121,8 +194,14 @@ export default function InventoryScreen() {
           {expiringItems.map((item) => (
             <TouchableOpacity
               key={item.id}
-              style={styles.expiringItem}
-              // onPress={() => handleItemClick(item)} // 추후 구현
+              style={[
+                styles.expiringItem,
+                showIdleHint && idleItem?.id === item.id ? styles.expiringItemHighlighted : null
+              ]}
+              onPress={() => {
+                resetIdleTimer();
+                handleItemPress(item, 'expiry');
+              }}
             >
               <View style={styles.expiringItemContent}>
                 <Text style={styles.expiringItemName}>{item.name}</Text>
@@ -170,6 +249,22 @@ export default function InventoryScreen() {
 
       {/* 고정된 하단 CTA 버튼 */}
       <FixedScanButton />
+
+      {/* 데모 가이드 모달 */}
+      <DemoGuideModal
+        visible={guideVisible}
+        onClose={() => setGuideVisible(false)}
+        itemType={guideType}
+        onCTAPress={handleCTAPress}
+        ctaText="저도 이렇게 관리할래요!"
+      />
+
+      {/* 재고 상세 모달 */}
+      <InventoryDetailModal
+        visible={inventoryDetailVisible}
+        onClose={() => setInventoryDetailVisible(false)}
+        inventory={inventory}
+      />
     </View>
   )
 }
@@ -281,5 +376,10 @@ const styles = StyleSheet.create({
   recipeArrow: {
     fontSize: 16,
     color: '#999999',
+  },
+  expiringItemHighlighted: {
+    backgroundColor: '#F0F8FF',
+    borderRadius: 8,
+    transform: [{ scale: 1.02 }], // 약간 확대 효과
   },
 })

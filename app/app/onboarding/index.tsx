@@ -90,6 +90,12 @@ export default function OnboardingScreen() {
         </View>
       </View>
 
+      {/* 데모 모드 설명 추가 */}
+      <View style={styles.demoHintContainer}>
+        <Text style={styles.demoHintTitle}>💡 데모 모드 활용 팁</Text>
+        <Text style={styles.demoHintText}>재고 목록에서 항목을 터치하면{'\n'}해당 기능에 대해 자세히 알아볼 수 있어요!</Text>
+      </View>
+
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.startButton}
@@ -196,5 +202,26 @@ const styles = StyleSheet.create({
   skipButtonText: {
     color: '#999999',
     fontSize: 14,
+  },
+  demoHintContainer: {
+    backgroundColor: '#F0F8FF',
+    padding: 16,
+    borderRadius: 12,
+    marginVertical: 20,
+    alignItems: 'center',
+    borderLeftWidth: 4,
+    borderLeftColor: '#0064FF',
+  },
+  demoHintTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  demoHintText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
   }
 })

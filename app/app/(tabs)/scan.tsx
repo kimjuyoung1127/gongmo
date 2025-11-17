@@ -218,11 +218,12 @@ useEffect(() => {
 
   // --- 모드 전환 핸들러 ---
   const handleModeChange = (value: string) => {
-    const newMode = value === '바코드' ? 'barcode' : 'receipt';
-    console.log(`\n--- [MODE] 모드 전환: ${newMode} ---`);
-    setScanMode(newMode);
-    
-    // 모드 전환 시 기존 상태 초기화
+    console.log(`\n--- [MODE] 모드 전환 요청: ${value} ---`);
+    // ModeToggle에서 직접 'barcode' 또는 'receipt' 키를 전달하므로, 그대로 사용
+    const newMode = value as 'barcode' | 'receipt';
+    console.log(`[MODE] 변환될 모드: ${newMode}, 현재 모드: ${scanMode} ---`);
+
+    // 먼저 상태 초기화 후 모드 변경
     setScannedData(null);
     setError(null);
     setExpiryDate('');
@@ -233,6 +234,10 @@ useEffect(() => {
     setManualName('');
     setManualCategory('');
     setScannedBarcode(null);
+
+    // 모드 상태 변경
+    setScanMode(newMode);
+    console.log(`[MODE] 모드 변경 완료: ${scanMode} -> ${newMode} ---`);
     console.log('[MODE] 모드 전환 완료, 상태 초기화됨\n');
   };
   
@@ -514,6 +519,7 @@ useEffect(() => {
         isActive={isFocused && !scannedData && !error && !showPhotoConfirm}
         codeScanner={scanMode === 'barcode' ? codeScanner : undefined}
         photo={scanMode === 'receipt'} // 👈 영수증 모드일 때 사진 촬영 활성화
+        key={`camera-${scanMode}`} // 🔑 키를 추가하여 모드 변경 시 재렌더링 강제
       />
       
       {isLoading && <ActivityIndicator size="large" color="#ffffff" />}
