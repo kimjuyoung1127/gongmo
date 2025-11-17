@@ -11,6 +11,7 @@ import LoginPromptBanner from '../../components/LoginPromptBanner'
 import DemoGuideModal from '../../components/DemoGuideModal'
 import InventoryDetailModal from '../../components/InventoryDetailModal'
 import { loadActiveInventory, InventoryItem } from '../../lib/supabase'
+import LottieView from 'lottie-react-native'
 
 // 유틸리티 함수
 const calculateDdayStable = (expiryDate: string): number => {
@@ -162,6 +163,19 @@ export default function InventoryScreen() {
 
   return (
     <View style={styles.container}>
+      {/* 데이터 로딩 중 로티 애니메이션 */}
+      {session && loading && (
+        <View style={styles.loadingContainer}>
+          <LottieView
+            source={require('../../assets/images/loading/cook in a wok.json')}
+            autoPlay
+            loop
+            style={styles.lottieAnimation}
+          />
+          <Text style={styles.loadingText}>재고 정보를 불러오는 중...</Text>
+        </View>
+      )}
+      
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* 카드 1: 오늘의 식품 현황 */}
         <TouchableOpacity onPress={showInventoryDetail} activeOpacity={0.8}>
@@ -381,5 +395,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F8FF',
     borderRadius: 8,
     transform: [{ scale: 1.02 }], // 약간 확대 효과
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    zIndex: 1,
+  },
+  lottieAnimation: {
+    width: 150,
+    height: 150,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
   },
 })

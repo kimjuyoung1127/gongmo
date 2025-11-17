@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Modal, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Modal, Text, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +9,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function TabLayout() {
   const { session } = useAuth();
   const router = useRouter();
-  const { bottom } = useSafeAreaInsets(); // Get bottom safe area inset
+  const safeAreaInsets = useSafeAreaInsets(); // Get safe area insets
+  const { bottom } = safeAreaInsets;
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [nextRoute, setNextRoute] = useState<string | null>(null);
 
@@ -41,32 +42,77 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           tabBarStyle: {
-            paddingBottom: Math.max(10, bottom), // Use safe area inset or 10, whichever is larger
-            paddingTop: 5,
+            paddingBottom: Math.max(12, bottom),
+            paddingTop: Math.max(16, safeAreaInsets.top || 0),
+            height: Math.max(100, bottom + 80),
+            backgroundColor: '#ffffff',
+            borderTopColor: '#e1e5e9',
+            borderTopWidth: 1,
+            elevation: 8,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 6,
           },
+          tabBarLabelStyle: {
+            display: 'none', // 탭 레이블 숨기기
+          },
+          headerStyle: {
+            backgroundColor: '#ffffff',
+            elevation: 4,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.05,
+            shadowRadius: 3,
+            borderBottomWidth: 1,
+            borderBottomColor: '#e1e5e9',
+          },
+          headerLeft: () => (
+            <View style={{ marginLeft: 20, marginBottom: 4 }}>
+              <Image 
+                source={require('../../assets/images/logo.png')}
+                style={{ width: 32, height: 32, resizeMode: 'contain' }}
+              />
+            </View>
+          ),
+          headerRight: () => (
+            <TouchableOpacity 
+              onPress={() => router.push('/settings')}
+              style={{ marginRight: 20, marginBottom: 4 }}
+            >
+              <Ionicons name="settings-outline" size={24} color="#666" />
+            </TouchableOpacity>
+          ),
         }}
         sceneContainerStyle={{
-          backgroundColor: '#F5F5F5', // 배경색 일관성 유지
+          backgroundColor: '#F5F5F5',
+          paddingBottom: Math.max(16, bottom), // 화면 콘텐츠와 탭 사이 여백
         }}
       >
         <Tabs.Screen
           name="index" // app/(tabs)/index.tsx 에 매핑
           options={{
-            title: '재고',
-            tabBarIcon: ({ color }) => <Ionicons name="cube-outline" size={24} color={color} />,
-          }}
-          listeners={{
-            tabPress: (e) => {
-              e.preventDefault(); // 기본 탭 이동 방지
-              handleNavigation('index');
-            },
+            title: '홈',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons 
+                name="archive-outline" 
+                size={focused ? 28 : 24} 
+                color={focused ? '#0064FF' : '#999'} 
+              />
+            ),
           }}
         />
         <Tabs.Screen
           name="scan" // app/(tabs)/scan.tsx 에 매핑
           options={{
             title: '스캔',
-            tabBarIcon: ({ color }) => <Ionicons name="scan-outline" size={24} color={color} />,
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons 
+                name="camera-outline" 
+                size={focused ? 28 : 24} 
+                color={focused ? '#0064FF' : '#999'} 
+              />
+            ),
           }}
           listeners={{
             tabPress: (e) => {
@@ -76,12 +122,30 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="settings" // app/(tabs)/settings.tsx 에 매핑
+          name="recipe" // app/(tabs)/recipe.tsx 에 매핑 (예정)
           options={{
-            title: '설정',
-            tabBarIcon: ({ color }) => <Ionicons name="settings-outline" size={24} color={color} />,
+            title: '레시피',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons 
+                name="restaurant-outline" 
+                size={focused ? 28 : 24} 
+                color={focused ? '#0064FF' : '#999'} 
+              />
+            ),
+          }}
+          listeners={{
+            tabPress: (e) => {
+              e.preventDefault(); // 기본 탭 이동 방지
+              if (!session) { // 데모 모드 (비로그인 상태)
+                setNextRoute('recipe');
+                setShowLoginModal(true);
+              } else {
+                router.push(`/(tabs)/recipe`);
+              }
+            },
           }}
         />
+        
       </Tabs>
 
       {/* 로그인 필요 모달 */}

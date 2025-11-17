@@ -33,10 +33,12 @@ current_module.supabase = supabase
 from .routes.ocr import ocr_bp
 from .routes.barcode import barcode_bp
 from .routes.inventory import inventory_bp
+from .routes.health import health_bp
 
 app.register_blueprint(ocr_bp)
 app.register_blueprint(barcode_bp)
 app.register_blueprint(inventory_bp)
+app.register_blueprint(health_bp)  # 서버 프리워밍을 위한 헬스 체크 블루프린트 등록
 
 # --- 5. 서버 실행 ---
 if __name__ == '__main__':

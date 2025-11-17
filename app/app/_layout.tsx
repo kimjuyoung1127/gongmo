@@ -4,6 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '../lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
+import { View, StyleSheet } from 'react-native';
+import LottieView from 'lottie-react-native';
+import { BACKEND_URL } from '../components/scan/ScanUtils';
 
 const RootLayout = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -47,6 +50,22 @@ const RootLayout = () => {
     };
   }, []);
 
+  // 서버 프리워밍 (Pre-warming): 앱이 시작될 때 서버를 미리 깨워서 콜드 스타트 문제 해결
+  useEffect(() => {
+    // 서버를 깨우는 요청을 보냄 (Fire and Forget - 응답 대기 없음)
+    fetch(`${BACKEND_URL}/health`)
+      .then(response => {
+        if (response.ok) {
+          console.log("[SERVER-PREWARM] 서버가 성공적으로 깨어남");
+        } else {
+          console.log("[SERVER-PREWARM] 서버 깨우기 요청 실패:", response.status);
+        }
+      })
+      .catch(error => {
+        console.log("[SERVER-PREWARM] 서버 깨우기 중 오류:", error);
+      });
+  }, []);
+
   // 온보딩 체크 플래그
   useEffect(() => {
     const checkFirstVisitAsync = async () => {
@@ -75,8 +94,8 @@ const RootLayout = () => {
         return;
       }
 
-      if (session && !inAppGroup) {
-        // 2. 로그인 유저? → 앱 메인으로
+      if (session && !inAppGroup && segments[0] !== 'settings' && segments[0] !== 'explore') {
+        // 2. 로그인 유저? (인증 그룹이 아니고, 설정/탐색 페이지도 아닐 때) → 앱 메인으로
         console.log('[Routing] 로그인 유저 → 앱 메인으로 이동');
         router.replace('/(tabs)');
       } else if (!session && (inAuthGroup || segments[0] === 'sign-in' || segments[0] === 'sign-up')) {
@@ -91,6 +110,20 @@ const RootLayout = () => {
     });
   }, [initialized, session, segments, firstVisitChecked]);
 
+  // 인증 초기화 중에는 로티 로딩 화면 표시
+  if (!initialized || !firstVisitChecked) {
+    return (
+      <View style={styles.loadingContainer}>
+        <LottieView
+          source={require('../assets/images/loading/Boiling pot.json')}
+          autoPlay
+          loop
+          style={styles.lottieAnimation}
+        />
+      </View>
+    );
+  }
+
   return (
     <Stack>
       <Stack.Screen name="onboarding" options={{ headerShown: false }} />
@@ -100,5 +133,18 @@ const RootLayout = () => {
     </Stack>
   );
 };
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+  },
+  lottieAnimation: {
+    width: 200,
+    height: 200,
+  },
+});
 
 export default RootLayout;

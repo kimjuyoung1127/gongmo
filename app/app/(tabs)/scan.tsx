@@ -1,6 +1,7 @@
 import React, { useState, useRef,useEffect } from 'react';
 import { Platform } from 'react-native';
 import { View, Text, StyleSheet, Button, Modal, ActivityIndicator, Vibration, TextInput, Alert, TouchableOpacity, Pressable, Image, ImageBackground } from 'react-native';
+import LottieView from 'lottie-react-native';
 
 import { useCameraPermission, useCameraDevice, Camera, useCodeScanner } from 'react-native-vision-camera';
 import { useIsFocused, useNavigation } from '@react-navigation/native'; // useNavigation 임포트
@@ -119,19 +120,19 @@ useEffect(() => {
 
   const uploadReceiptToBackend = async (imageUri: string) => {
     console.log('\n--- [OCR] 영수증 업로드 시작 ---');
-    
+
     try {
       // 현재 로그인된 사용자 정보 가져오기
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
+
       if (userError || !user) {
         console.error('[USER-ERROR] 사용자 정보를 가져올 수 없습니다:', userError);
         Alert.alert('오류', '로그인이 필요합니다. 다시 로그인해주세요.');
         return null;
       }
-      
+
       console.log('[USER] 현재 사용자 ID:', user.id);
-      
+
       const formData = new FormData();
       formData.append('image', {
         uri: imageUri,
@@ -139,36 +140,47 @@ useEffect(() => {
         name: 'receipt.jpg',
       } as any);
       formData.append('user_id', user.id);  // ✅ user_id 전송 추가
-      
+
+      // 서버 콜드 스타트 문제를 고려하여 타임아웃을 넉넉하게 설정 (2분)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2분 타임아웃
+
       const response = await fetch(`${BACKEND_URL}/upload_receipt`, {
         method: 'POST',
         body: formData,
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        signal: controller.signal,
       });
-      
+
+      clearTimeout(timeoutId);
+
       console.log('[OCR-DEBUG] 응답 상태:', response.status);
       console.log('[OCR-DEBUG] 응답 헤더:', response.headers);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.error) {
         console.error('[OCR-ERROR] 서버 오류:', data.error);
         Alert.alert('오류', `영수증 처리 중 문제가 발생했습니다: ${data.error}`);
         return null;
       }
-      
+
       console.log('[OCR-SUCCESS] 처리 완료:', data.processed_count, '개 품목');
-      
+
       return data;
     } catch (error) {
       console.error('[OCR-ERROR] 업로드 실패:', error);
-      Alert.alert('오류', '영수증을 업로드하는 중 문제가 발생했습니다.');
+      if (error.name === 'AbortError') {
+        Alert.alert('오류', '서버 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.');
+      } else {
+        Alert.alert('오류', '영수증을 업로드하는 중 문제가 발생했습니다.');
+      }
       return null;
     } finally {
       console.log('--- [OCR] 영수증 업로드 완료 ---\n');
@@ -522,7 +534,16 @@ useEffect(() => {
         key={`camera-${scanMode}`} // 🔑 키를 추가하여 모드 변경 시 재렌더링 강제
       />
       
-      {isLoading && <ActivityIndicator size="large" color="#ffffff" />}
+      {isLoading && (
+        <View style={styles.loadingContainer}>
+          <LottieView
+            source={require('../../assets/images/loading/Cooking - Frying Pan.json')}
+            autoPlay
+            loop
+            style={styles.lottieAnimation}
+          />
+        </View>
+      )}
       
       {/* 모드 전환 버튼 */}
       <ModeToggle scanMode={scanMode} onModeChange={handleModeChange} />
@@ -753,5 +774,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  lottieAnimation: {
+    width: 200,
+    height: 200,
   },
 });
