@@ -1,209 +1,285 @@
-import React, { useState, useEffect, useMemo, useCallback, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Button } from 'react-native';
-import { supabase } from '../../lib/supabase';
-import { useFocusEffect, useNavigation } from '@react-navigation/native'; // useFocusEffect, useNavigation 임포트
-import { loadActiveInventory, updateInventoryStatus, InventoryItem } from '../../lib/supabase';
-import InventoryCard from '../../components/InventoryCard';
-import { calculateDdayStable } from '../../lib/utils';
+import React, { useMemo, useState, useEffect } from 'react'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
+import { useRouter } from 'expo-router'
+import { useFocusEffect } from '@react-navigation/native'
+import { useAuth } from '../../hooks/useAuth'
+import { useDemoData } from '../../hooks/useDemoData'
+import InfoCard from '../../components/InfoCard'
+import FixedScanButton from '../../components/FixedScanButton'
+import LoginPromptBanner from '../../components/LoginPromptBanner'
+import { loadActiveInventory, InventoryItem } from '../../lib/supabase'
 
-type StatusFilter = 'active' | 'expiring';
+// 유틸리티 함수
+const calculateDdayStable = (expiryDate: string): number => {
+  const expiry = new Date(expiryDate)
+  expiry.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const diffTime = expiry.getTime() - today.getTime()
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+}
 
+// 홈 화면 - 인증 상태에 따라 데모 데이터 또는 실제 데이터를 표시하며, 온보딩 기반 UX 제공
 export default function InventoryScreen() {
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
-  const [userId, setUserId] = useState<string | null>(null);
-  const navigation = useNavigation();
+  const router = useRouter()
+  const { session } = useAuth()
+  const { demoInventory, stats } = useDemoData()
 
-  // 사용자 ID 가져오기
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-      }
-    };
-    getUser();
-  }, []);
+  const [realInventory, setRealInventory] = useState<InventoryItem[]>([])
+  const [loading, setLoading] = useState(false)
 
-  // 데이터 로드 함수 (useCallback으로 감싸서 불필요한 재생성 방지)
-  const loadInventory = useCallback(async () => {
-    if (!userId) return;
+  // 실제 데이터 로드 (로그인된 경우)
+  const loadRealInventory = async () => {
+    if (!session?.user?.id) return
+
     try {
-      setLoading(true);
-      const data = await loadActiveInventory(userId);
-      setInventory(data);
+      setLoading(true)
+      const data = await loadActiveInventory(session.user.id)
+      setRealInventory(data)
     } catch (error) {
-      console.error('재고 목록 로드 실패:', error);
+      console.error('실제 데이터 로드 실패:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [userId]);
-
-  // 화면이 포커스될 때마다 데이터 로드
-  useFocusEffect(
-    useCallback(() => {
-      loadInventory();
-    }, [loadInventory]) // loadInventory 함수가 변경될 때만 useFocusEffect를 다시 실행
-  );
-
-  // 헤더에 새로고침 버튼 추가
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity onPress={loadInventory} style={{ marginRight: 15 }}>
-          <Text style={{ color: '#007AFF', fontSize: 16 }}>새로고침</Text>
-        </TouchableOpacity>
-      ),
-    });
-  }, [navigation, loadInventory]);
-
-  // 필터링된 재고 목록
-  const filteredInventory = useMemo(() => {
-    let filtered = inventory;
-    
-    if (statusFilter === 'expiring') {
-      filtered = filtered.filter(item => {
-        const dDay = calculateDdayStable(item.expiry_date);
-        const diffDays = Math.ceil(dDay / (1000 * 60 * 60 * 24));
-        return diffDays <= 7 && diffDays > 0;
-      });
-    }
-    
-    // D-Day 기반 정렬
-    return filtered.sort((a, b) => {
-      const dDayA = calculateDdayStable(a.expiry_date);
-      const dDayB = calculateDdayStable(b.expiry_date);
-      return dDayA - dDayB;
-    });
-  }, [inventory, statusFilter]);
-
-  // 재고 상태 변경 핸들러
-  const handleConsume = async (itemId: number) => {
-    try {
-      await updateInventoryStatus(itemId, 'consumed');
-      loadInventory(); // 상태 변경 후 목록 새로고침
-    } catch (error) {
-      console.error('소비 처리 실패:', error);
-    }
-  };
-
-  const handleDiscard = async (itemId: number) => {
-    try {
-      await updateInventoryStatus(itemId, 'expired');
-      loadInventory(); // 상태 변경 후 목록 새로고침
-    } catch (error) {
-      console.error('폐기 처리 실패:', error);
-    }
-  };
-
-  // 필터 카운트 계산
-  const expiringCount = useMemo(() => {
-    return inventory.filter(item => {
-      const dDay = calculateDdayStable(item.expiry_date);
-      const diffDays = Math.ceil(dDay / (1000 * 60 * 60 * 24));
-      return diffDays <= 7 && diffDays > 0;
-    }).length;
-  }, [inventory]);
-
-  // 로딩 상태
-  if (loading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>재고 목록 불러오는 중...</Text>
-      </View>
-    );
   }
+
+  // 세션 상태가 변경될 때마다 실제 데이터 로드
+  useEffect(() => {
+    if (session) {
+      loadRealInventory()
+    }
+  }, [session])
+
+  // 화면이 포커스될 때마다 실제 데이터 로드 (새로고침 기능)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (session) {
+        loadRealInventory()
+      }
+    }, [session])
+  )
+
+  // 데모/실제 데이터 결정
+  const inventory = session ? realInventory : demoInventory
+  const currentStats = session ?
+    (() => {
+      const refrigerated = inventory.filter(item => item.category_name_kr?.includes('유제품') || item.category_name_kr?.includes('계란')).length
+      const frozen = inventory.filter(item => item.category_name_kr?.includes('냉동')).length
+      const room_temp = inventory.length - refrigerated - frozen
+      const expiring = inventory.filter(item => {
+        const dDay = calculateDdayStable(item.expiry_date)
+        return dDay <= 7 && dDay > 0
+      }).length
+      return { refrigerated, frozen, room_temp, expiring }
+    })()
+    : stats
+
+  // 임박 상품 필터링
+  const expiringItems = useMemo(() => {
+    return inventory
+      .filter(item => {
+        const dDay = calculateDdayStable(item.expiry_date)
+        return dDay <= 7 && dDay > 0
+      })
+      .slice(0, 3) // 최대 3개만 표시
+      .sort((a, b) => {
+        const dDayA = calculateDdayStable(a.expiry_date)
+        const dDayB = calculateDdayStable(b.expiry_date)
+        return dDayA - dDayB
+      })
+  }, [inventory])
 
   return (
     <View style={styles.container}>
-      {/* 필터 버튼 */}
-      <View style={styles.filterContainer}>
-        <TouchableOpacity 
-          style={[
-            styles.filterButton, 
-            statusFilter === 'active' && styles.activeFilter
-          ]}
-          onPress={() => setStatusFilter('active')}
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* 카드 1: 오늘의 식품 현황 */}
+        <InfoCard
+          emoji="💡"
+          title="오늘의 식품 현황"
+          subtitle={`냉장 ${currentStats.refrigerated}개 | 냉동 ${currentStats.frozen}개 | 실온 ${currentStats.room_temp}개`}
         >
-          <Text style={styles.filterText}>🥬 전체 ({inventory.length})</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[
-            styles.filterButton, 
-            statusFilter === 'expiring' && styles.activeFilter
-          ]}
-          onPress={() => setStatusFilter('expiring')}
-        >
-          <Text style={styles.filterText}>🔴 D-7 ({expiringCount})</Text>
-        </TouchableOpacity>
-      </View>
+          <View style={styles.quickStats}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{inventory.length}</Text>
+              <Text style={styles.statLabel}>총재고</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statNumber, styles.warningText]}>{currentStats.expiring}</Text>
+              <Text style={styles.statLabel}>임박</Text>
+            </View>
+          </View>
+        </InfoCard>
 
-      {/* 재고 목록 */}
-      <FlatList 
-        data={filteredInventory}
-        renderItem={({ item }) => (
-          <InventoryCard 
-            item={item}
-            onConsume={() => handleConsume(item.id)}
-            onDiscard={() => handleDiscard(item.id)}
-          />
-        )}
-        keyExtractor={item => item.id.toString()}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
+        {/* 카드 2: 소비기한 임박 */}
+        <InfoCard
+          emoji="⚠️"
+          title={`소비기한 임박 (${currentStats.expiring}개)`}
+          subtitle={expiringItems.length > 0 ? "곧 소비해야 할 식료품이 있어요" : "임박한 식료품이 없어요"}
+          variant="warning"
+        >
+          {expiringItems.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.expiringItem}
+              // onPress={() => handleItemClick(item)} // 추후 구현
+            >
+              <View style={styles.expiringItemContent}>
+                <Text style={styles.expiringItemName}>{item.name}</Text>
+                <Text style={styles.expiringItemDate}>{item.d_day || calculateDdayStable(item.expiry_date) + '일'}</Text>
+              </View>
+              <View style={[styles.dDayBadge, { backgroundColor: item.d_day?.includes('D-1') ? '#FF3B30' : '#FF6B00' }]}>
+                <Text style={styles.dDayText}>{item.d_day || `D-${calculateDdayStable(item.expiry_date)}`}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+
+          {expiringItems.length === 0 && (
+            <View style={styles.noExpiringContainer}>
+              <View style={styles.emojiContainer}>
+                <Text style={styles.emoji}>😊</Text>
+              </View>
+              <Text style={styles.noExpiringText}>여유로운 재고상태네요!</Text>
+            </View>
+          )}
+        </InfoCard>
+
+        {/* 카드 3: 레시피 추천 */}
+        <InfoCard
+          emoji="🍳"
+          title="냉파 레시피 추천"
+          subtitle="보유 재료로 만들 수 있는 요리"
+        >
+          <TouchableOpacity style={styles.recipeItem}>
+            <View style={styles.recipeContent}>
+              <Text style={styles.recipeTitle}>계란후라이드와 토스트</Text>
+              <Text style={styles.recipeDesc}>
+                보유한 계란으로 만드는 간단한 아침 식사
+              </Text>
+            </View>
+            <Text style={styles.recipeArrow}>→</Text>
+          </TouchableOpacity>
+        </InfoCard>
+
+        {/* 로그인 유도 배너 (데모 모드일 때만) */}
+        {!session && <LoginPromptBanner />}
+
+        {/* 하단 여백 (고정 버튼 공간 확보) */}
+        <View style={{ height: 100 }} />
+      </ScrollView>
+
+      {/* 고정된 하단 CTA 버튼 */}
+      <FixedScanButton />
     </View>
-  );
+  )
 }
 
+// 스타일 정의
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
   },
-  centerContainer: {
+  scrollView: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  quickStats: {
+    flexDirection: 'row',
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 16,
+  },
+  statItem: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
   },
-  loadingText: {
-    marginTop: 16,
+  statNumber: {
     fontSize: 16,
-    color: '#666',
+    fontWeight: '700',
+    color: '#333333',
   },
-  filterContainer: {
+  warningText: {
+    color: '#FF6B00',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#666666',
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: '#E1E8E8',
+    marginHorizontal: 16,
+  },
+  expiringItem: {
     flexDirection: 'row',
-    padding: 16,
-    gap: 8,
-    backgroundColor: '#FFF',
-  },
-  filterButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    borderWidth: 1,
-    borderColor: '#E1E8E8',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
-  activeFilter: {
-    backgroundColor: '#007AFF',
-    borderWidth: 1,
-    borderColor: '#007AFF',
+  expiringItemContent: {
+    flex: 1,
   },
-  filterText: {
+  expiringItemName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333333',
+  },
+  expiringItemDate: {
+    fontSize: 12,
+    color: '#666666',
+    marginTop: 2,
+  },
+  dDayBadge: {
+    backgroundColor: '#FF6B00',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  dDayText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  noExpiringContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  emojiContainer: {
+    marginBottom: 8,
+  },
+  emoji: {
+    fontSize: 24,
+  },
+  noExpiringText: {
+    fontSize: 14,
+    color: '#666666',
+  },
+  recipeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  recipeContent: {
+    flex: 1,
+  },
+  recipeTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: '#333333',
   },
-  activeFilterText: {
-    color: '#FFF',
+  recipeDesc: {
+    fontSize: 12,
+    color: '#666666',
+    marginTop: 4,
   },
-  listContainer: {
-    padding: 16,
+  recipeArrow: {
+    fontSize: 16,
+    color: '#999999',
   },
-});
+})
