@@ -1,23 +1,31 @@
-import React from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { InventoryItem } from '../lib/supabase';
+import { supabase, InventoryItem } from '../lib/supabase';
 import { calculateDDay } from '../lib/utils';
 import { CATEGORIES } from '../lib/categories';
+import EditInventoryModal from './EditInventoryModal';
 
 interface InventoryDetailModalProps {
   visible: boolean;
   onClose: () => void;
   inventory: InventoryItem[];
   onItemPress?: (item: InventoryItem) => void;
+  onItemUpdate?: (updatedItem: InventoryItem) => void; // Callback when an item is updated
+  onItemDelete?: (itemId: number) => void; // Callback when an item is deleted
 }
 
-export default function InventoryDetailModal({ 
-  visible, 
-  onClose, 
+export default function InventoryDetailModal({
+  visible,
+  onClose,
   inventory,
-  onItemPress
+  onItemPress,
+  onItemUpdate,
+  onItemDelete
 }: InventoryDetailModalProps) {
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+
   const renderItem = ({ item }: { item: InventoryItem }) => {
     const dDay = calculateDDay(item.expiry_date);
     const categoryInfo = CATEGORIES[item.category_id as keyof typeof CATEGORIES] ||
@@ -34,6 +42,60 @@ export default function InventoryDetailModal({
       <TouchableOpacity
         style={styles.itemContainer}
         onPress={() => onItemPress?.(item)}
+        onLongPress={() => {
+          // Show options when long-pressed
+          Alert.alert(
+            '재고 항목',
+            `${item.name} 항목을 어떻게 하시겠습니까?`,
+            [
+              {
+                text: '수정',
+                onPress: () => {
+                  setSelectedItem(item);
+                  setEditModalVisible(true);
+                },
+              },
+              {
+                text: '삭제',
+                style: 'destructive',
+                onPress: () => {
+                  Alert.alert(
+                    '삭제 확인',
+                    `${item.name} 항목을 정말 삭제하시겠습니까?`,
+                    [
+                      { text: '취소', style: 'cancel' },
+                      {
+                        text: '삭제',
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            const { error } = await supabase
+                              .from('inventory')
+                              .delete()
+                              .eq('id', item.id);
+
+                            if (error) {
+                              throw error;
+                            }
+
+                            onItemDelete?.(item.id);
+                          } catch (error: any) {
+                            console.error('재고 삭제 오류:', error);
+                            Alert.alert('오류', error.message || '재고 항목을 삭제하는 중 문제가 발생했습니다.');
+                          }
+                        }
+                      }
+                    ]
+                  );
+                }
+              },
+              {
+                text: '취소',
+                style: 'cancel'
+              }
+            ]
+          );
+        }}
       >
         <View style={styles.itemRow}>
           <View style={styles.itemIcon}>
@@ -59,35 +121,49 @@ export default function InventoryDetailModal({
     );
   };
 
+  const handleEditModalSave = (updatedItem: InventoryItem) => {
+    onItemUpdate?.(updatedItem);
+    setEditModalVisible(false);
+  };
+
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.overlay}>
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>내 재고 현황</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Text style={styles.closeButtonText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.divider} />
-
-          {inventory.length > 0 ? (
-            <FlatList
-              data={inventory}
-              renderItem={renderItem}
-              keyExtractor={(item) => item.id.toString()}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContainer}
-            />
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>등록된 재고가 없습니다</Text>
+    <>
+      <Modal visible={visible} transparent animationType="slide">
+        <View style={styles.overlay}>
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>내 재고 현황</Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
             </View>
-          )}
-        </SafeAreaView>
-      </View>
-    </Modal>
+
+            <View style={styles.divider} />
+
+            {inventory.length > 0 ? (
+              <FlatList
+                data={inventory}
+                renderItem={renderItem}
+                keyExtractor={(item) => item.id.toString()}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.listContainer}
+              />
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>등록된 재고가 없습니다</Text>
+              </View>
+            )}
+          </SafeAreaView>
+        </View>
+      </Modal>
+
+      <EditInventoryModal
+        visible={editModalVisible}
+        onClose={() => setEditModalVisible(false)}
+        item={selectedItem}
+        onSave={handleEditModalSave}
+      />
+    </>
   );
 }
 

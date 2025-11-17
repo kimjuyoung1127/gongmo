@@ -10,6 +10,7 @@ import FixedScanButton from '../../components/FixedScanButton'
 import LoginPromptBanner from '../../components/LoginPromptBanner'
 import DemoGuideModal from '../../components/DemoGuideModal'
 import InventoryDetailModal from '../../components/InventoryDetailModal'
+import EditInventoryModal from '../../components/EditInventoryModal'
 import { loadActiveInventory, InventoryItem } from '../../lib/supabase'
 import LottieView from 'lottie-react-native'
 
@@ -38,6 +39,9 @@ export default function InventoryScreen() {
 
   // Inventory detail modal state
   const [inventoryDetailVisible, setInventoryDetailVisible] = useState(false)
+  // Edit inventory item modal state
+  const [editItem, setEditItem] = useState<InventoryItem | null>(null)
+  const [editModalVisible, setEditModalVisible] = useState(false)
 
   // Idle state for animation hint
   const [idleTimeout, setIdleTimeout] = useState<NodeJS.Timeout | null>(null)
@@ -59,7 +63,7 @@ export default function InventoryScreen() {
     }
   }
 
-  // 아이템 클릭 핸들러 - 데모 모드일 때는 가이드 모달, 실제 모드일 때는 상세 정보
+  // 아이템 클릭 핸들러 - 데모 모드일 때는 가이드 모달, 실제 모드일 때는 수정 모달
   const handleItemPress = (item: any, type: 'expiry' | 'storage' | 'recipe') => {
     if (!session) {
       // 데모 모드(비로그인) -> 가이드 모달 띄우기
@@ -67,8 +71,13 @@ export default function InventoryScreen() {
       setGuideType(type);
       setGuideVisible(true);
     } else {
-      // 실제 모드(로그인) -> 상세 페이지 이동 (추후 구현)
-      console.log('상세 페이지 이동');
+      // 실제 모드(로그인) -> 수정 모달 열기
+      if (type === 'expiry') {
+        setEditItem(item);
+        setEditModalVisible(true);
+      } else {
+        console.log('상세 페이지 이동');
+      }
     }
   };
 
@@ -79,10 +88,50 @@ export default function InventoryScreen() {
     router.replace('/sign-in');
   };
 
+  // Handle saving updated inventory item
+  const handleEditSave = (updatedItem: InventoryItem) => {
+    if (session) {
+      // Update the real inventory with the edited item
+      setRealInventory(prev =>
+        prev.map(item =>
+          item.id === updatedItem.id ? updatedItem : item
+        )
+      );
+    } else {
+      // Update the demo inventory if in demo mode
+      // Note: This would require updating useDemoData hook to expose setter
+      console.log("Updated demo item:", updatedItem);
+    }
+    setEditModalVisible(false);
+    // Force a refresh to ensure UI updates immediately
+    forceRefresh({});
+  };
+
+  // Inventory detail modal for expiring items state
+  const [expiringDetailVisible, setExpiringDetailVisible] = useState(false);
+  const [expiringItemsForModal, setExpiringItemsForModal] = useState<InventoryItem[]>([]);
+
+  // Force refresh trigger
+  const [, forceRefresh] = useState({}); // Simple state to trigger re-renders
+
   // Handle showing inventory detail modal
   const showInventoryDetail = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // 햅틱 피드백
     setInventoryDetailVisible(true);
+  };
+
+  // Handle showing expiring items detail modal
+  const showExpiringDetail = (items: InventoryItem[]) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // 햅틱 피드백
+    setExpiringItemsForModal(items);
+    setExpiringDetailVisible(true);
+  };
+
+  // Handle showing all expiring items detail modal
+  const showAllExpiringDetail = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // 햅틱 피드백
+    setExpiringItemsForModal(allExpiringItems);
+    setExpiringDetailVisible(true);
   };
 
   // 아이들 타이머 리셋 함수
@@ -146,14 +195,28 @@ export default function InventoryScreen() {
     })()
     : stats
 
-  // 임박 상품 필터링
+  // 임박 상품 필터링 (3개만 표시용)
   const expiringItems = useMemo(() => {
     return inventory
       .filter(item => {
         const dDay = calculateDdayStable(item.expiry_date)
         return dDay <= 7 && dDay > 0
       })
+      .sort((a, b) => {
+        const dDayA = calculateDdayStable(a.expiry_date)
+        const dDayB = calculateDdayStable(b.expiry_date)
+        return dDayA - dDayB
+      })
       .slice(0, 3) // 최대 3개만 표시
+  }, [inventory])
+
+  // 전체 임박 상품 (모달용)
+  const allExpiringItems = useMemo(() => {
+    return inventory
+      .filter(item => {
+        const dDay = calculateDdayStable(item.expiry_date)
+        return dDay <= 7 && dDay > 0
+      })
       .sort((a, b) => {
         const dDayA = calculateDdayStable(a.expiry_date)
         const dDayB = calculateDdayStable(b.expiry_date)
@@ -185,15 +248,21 @@ export default function InventoryScreen() {
             subtitle={`냉장 ${currentStats.refrigerated}개 | 냉동 ${currentStats.frozen}개 | 실온 ${currentStats.room_temp}개`}
           >
             <View style={styles.quickStats}>
-              <View style={styles.statItem}>
+              <TouchableOpacity
+                style={styles.statItem}
+                onPress={showInventoryDetail}
+              >
                 <Text style={styles.statNumber}>{inventory.length}</Text>
                 <Text style={styles.statLabel}>총재고</Text>
-              </View>
+              </TouchableOpacity>
               <View style={styles.statDivider} />
-              <View style={styles.statItem}>
+              <TouchableOpacity
+                style={styles.statItem}
+                onPress={showAllExpiringDetail}
+              >
                 <Text style={[styles.statNumber, styles.warningText]}>{currentStats.expiring}</Text>
                 <Text style={styles.statLabel}>임박</Text>
-              </View>
+              </TouchableOpacity>
             </View>
           </InfoCard>
         </TouchableOpacity>
@@ -278,6 +347,80 @@ export default function InventoryScreen() {
         visible={inventoryDetailVisible}
         onClose={() => setInventoryDetailVisible(false)}
         inventory={inventory}
+        onItemUpdate={(updatedItem) => {
+          if (session) {
+            setRealInventory(prev =>
+              prev.map(item =>
+                item.id === updatedItem.id ? updatedItem : item
+              )
+            );
+          }
+          // Force a refresh to ensure UI updates immediately
+          forceRefresh({});
+        }}
+        onItemDelete={(itemId) => {
+          if (session) {
+            setRealInventory(prev =>
+              prev.filter(item => item.id !== itemId)
+            );
+          }
+          // Force a refresh to ensure UI updates immediately
+          forceRefresh({});
+        }}
+      />
+
+      {/* 재고 항목 수정 모달 */}
+      <EditInventoryModal
+        visible={editModalVisible}
+        onClose={() => setEditModalVisible(false)}
+        item={editItem}
+        onSave={handleEditSave}
+      />
+
+      {/* 소비기한 임박 상세 모달 */}
+      <InventoryDetailModal
+        visible={expiringDetailVisible}
+        onClose={() => setExpiringDetailVisible(false)}
+        inventory={expiringItemsForModal}
+        onItemPress={(item) => {
+          setEditItem(item);
+          setExpiringDetailVisible(false);
+          setEditModalVisible(true);
+        }}
+        onItemUpdate={(updatedItem) => {
+          if (session) {
+            setRealInventory(prev =>
+              prev.map(item =>
+                item.id === updatedItem.id ? updatedItem : item
+              )
+            );
+          }
+          setExpiringItemsForModal(prev =>
+            prev.map(item =>
+              item.id === updatedItem.id ? updatedItem : item
+            )
+          );
+          // Force a refresh to ensure UI updates immediately
+          forceRefresh({});
+        }}
+        onItemDelete={(itemId) => {
+          if (session) {
+            setRealInventory(prev =>
+              prev.filter(item => item.id !== itemId)
+            );
+          } else {
+            // For demo mode, trigger a refresh to get updated demo data
+            // This is a workaround since we can't directly modify demo data
+            console.log("Demo item deleted:", itemId);
+          }
+          setExpiringItemsForModal(prev =>
+            prev.filter(item => item.id !== itemId)
+          );
+          // Also close the modal after deletion
+          setExpiringDetailVisible(false);
+          // Force a refresh to ensure UI updates immediately
+          forceRefresh({});
+        }}
       />
     </View>
   )

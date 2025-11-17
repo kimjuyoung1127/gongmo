@@ -8,14 +8,14 @@ import openfoodfacts
 
 def _load_category_map():
     """
-    categories_proper.csv 파일을 읽어 외부 카테고리명과 내부 카테고리 ID를 매핑하는 딕셔너리를 생성하고 캐싱합니다.
+    categories_master.csv 파일을 읽어 외부 카테고리명과 내부 카테고리 ID를 매핑하는 딕셔너리를 생성하고 캐싱합니다.
     이 함수는 첫 API 호출 시 한 번만 실행됩니다.
     """
     category_map = {}
     try:
         # 현재 파일의 위치를 기준으로 절대 경로 생성
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        csv_path = os.path.join(current_dir, '..', 'data', 'categories_proper.csv')
+        csv_path = os.path.join(current_dir, '..', 'data', 'categories_master.csv')
 
         with open(csv_path, mode='r', encoding='utf-8') as infile:
             reader = csv.DictReader(infile)

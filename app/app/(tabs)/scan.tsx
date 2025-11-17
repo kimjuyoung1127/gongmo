@@ -190,34 +190,42 @@ useEffect(() => {
   const handleUsePhoto = async () => {
     console.log('\n--- [PHOTO-CONFIRM] 사진 사용 선택 ---');
     setShowPhotoConfirm(false);
-    
+
     if (!capturedImage) {
       Alert.alert('오류', '촬영된 사진이 없습니다.');
       return;
     }
-    
-    // 실제 OCR 처리 시작
-    const receiptData = await uploadReceiptToBackend(capturedImage);
-    
-    if (receiptData) {
-      console.log(`✅ [OCR-SUCCESS] ${receiptData.processed_count || 0}개 품목을 재고에 추가했습니다.`);
-      
-      // 바로 재고 화면으로 이동
-      Alert.alert(
-        '성공',
-        `${receiptData.processed_count || 0}개 품목이 재고에 추가되었습니다.`,
-        [
-          {
-            text: '확인',
-            onPress: () => {
-              console.log('[NAV] 재고 화면(index)으로 이동');
-              navigation.navigate('index' as never);
+
+    // 로딩 상태 설정 - OCR 처리 시작
+    setIsLoading(true);
+
+    try {
+      // 실제 OCR 처리 시작
+      const receiptData = await uploadReceiptToBackend(capturedImage);
+
+      if (receiptData) {
+        console.log(`✅ [OCR-SUCCESS] ${receiptData.processed_count || 0}개 품목을 재고에 추가했습니다.`);
+
+        // 바로 재고 화면으로 이동
+        Alert.alert(
+          '성공',
+          `${receiptData.processed_count || 0}개 품목이 재고에 추가되었습니다.`,
+          [
+            {
+              text: '확인',
+              onPress: () => {
+                console.log('[NAV] 재고 화면(index)으로 이동');
+                navigation.navigate('index' as never);
+              }
             }
-          }
-        ]
-      );
+          ]
+        );
+      }
+    } finally {
+      // 로딩 상태 해제 - OCR 처리 완료
+      setIsLoading(false);
     }
-    
+
     console.log('--- [PHOTO-CONFIRM] 처리 완료 ---\n');
   };
 
