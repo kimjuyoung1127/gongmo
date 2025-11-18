@@ -112,6 +112,7 @@ def _load_category_map_by_id():
 def get_category_info_by_id(category_id: int):
     """
     카테고리 ID를 기반으로 이름과 유통기한 정보를 조회합니다.
+    ID가 없으면 None을 반환합니다.
     """
     category_map = _load_category_map_by_id()
-    return category_map.get(category_id, {'category_name_kr': '기타', 'default_expiry_days': 7})
+    return category_map.get(category_id)

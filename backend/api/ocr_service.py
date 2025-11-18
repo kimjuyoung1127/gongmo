@@ -262,46 +262,18 @@ async def parse_clova_response_to_items(clova_response):
             category_id = item.get('category_id', 37)  # 기본값: 기타(37)
             quantity = item.get('quantity', 1)
 
-            # 카테고리 ID를 사용하여 카테고리 이름과 유통기한 가져오기
             # 카테고리 ID를 사용하여 카테고리 정보 가져오기
             from .utils.expiry_logic import get_category_info_by_id
             category_info = get_category_info_by_id(category_id)
-            category_name = category_info.get('category_name_kr', '기타') if category_info else '기타'
-            expiry_days = category_info.get('default_expiry_days', 7) if category_info else 7
 
             # 유효하지 않은 카테고리 ID인 경우 기본 카테고리(기타)로 대체
             if not category_info:
-                # DB에 있는 '기타' 카테고리 ID를 찾기 위해 직접 조회
-                from supabase import create_client
-                import os
-                supabase_url = os.environ.get('SUPABASE_URL')
-                supabase_key = os.environ.get('SUPABASE_ANON_KEY')
-                local_supabase = create_client(supabase_url, supabase_key) if supabase_url and supabase_key else None
+                print(f"[WARN] Invalid category_id '{category_id}' received from LLM. Falling back to '기타'.")
+                category_id = 37  # '기타' 카테고리의 ID
+                category_info = get_category_info_by_id(category_id)
 
-                if local_supabase:
-                    try:
-                        # '기타' 카테고리 ID를 직접 조회
-                        result = local_supabase.table('categories').select('id').eq('category_code', 'ETC').execute()
-                        if result.data and len(result.data) > 0:
-                            category_id = result.data[0]['id']
-                            category_name = '기타'
-                            # 기본 유통기한을 7일로 설정
-                            expiry_days = 7
-                        else:
-                            # 'ETC' 코드가 없는 경우, 가장 마지막 카테고리 ID 사용
-                            category_id = 37  # 기본 ID
-                            category_name = '기타'
-                            expiry_days = 7
-                    except Exception as db_error:
-                        print(f"[ERROR] 기본 카테고리 조회 실패, 기본값 사용: {str(db_error)}")
-                        category_id = 37  # 기본 ID
-                        category_name = '기타'
-                        expiry_days = 7
-                else:
-                    # DB 연결이 없는 경우 기본값 사용
-                    category_id = 37  # 기본 ID
-                    category_name = '기타'
-                    expiry_days = 7
+            category_name = category_info.get('category_name_kr', '기타')
+            expiry_days = category_info.get('default_expiry_days', 7)
 
             # 👆 category_id와 expiry_days까지 캐시에 저장하여 속도 최적화
             item_data = {
