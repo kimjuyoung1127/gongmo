@@ -73,7 +73,7 @@ export const PhotoConfirmModal: React.FC<PhotoConfirmModalProps> = ({
           <Text style={styles.photoGuideTitle}>촬영 가이드</Text>
           <Text style={styles.photoGuideText}>• 영수증 전체가 한 화면에 나오게 촬영</Text>
           <Text style={styles.photoGuideText}>• 그림자나 반사가 없는 밝은 곳에서 촬영</Text>
-          <Text style={styles.photoGuideText}>• 글씨이 선명하게 읽혀야 합니다</Text>
+          <Text style={styles.photoGuideText}>• 글씨가 선명하게 읽혀야 합니다</Text>
         </View>
       </View>
     </Modal>

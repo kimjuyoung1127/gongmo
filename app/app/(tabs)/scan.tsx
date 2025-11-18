@@ -1,6 +1,6 @@
 import React, { useState, useRef,useEffect } from 'react';
 import { Platform } from 'react-native';
-import { View, Text, StyleSheet, Button, Modal, ActivityIndicator, Vibration, TextInput, Alert, TouchableOpacity, Pressable, Image, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, Button, Modal, ActivityIndicator, Vibration, TextInput, Alert, TouchableOpacity, Pressable, Image, ImageBackground, FlatList } from 'react-native';
 import LottieView from 'lottie-react-native';
 
 import { useCameraPermission, useCameraDevice, Camera, useCodeScanner } from 'react-native-vision-camera';
@@ -10,7 +10,8 @@ import { supabase } from '../../lib/supabase'; // Supabase 클라이언트 임�
 
 import { ModeToggle } from '../../components/scan/ModeToggle';
 import { PhotoConfirmModal } from '../../components/scan/PhotoConfirmModal';
-import { ScannedProductData, BACKEND_URL, getCategoryIdByName } from '../../components/scan/ScanUtils'; 
+import { ScannedProductData, BACKEND_URL, getCategoryIdByName } from '../../components/scan/ScanUtils';
+import { CATEGORIES } from '../../lib/categories'; 
 
 export default function ScanScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -63,6 +64,7 @@ useEffect(() => {
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualName, setManualName] = useState('');
   const [manualCategory, setManualCategory] = useState('');
+  const [manualCategoryId, setManualCategoryId] = useState(30); // Default to "과자/스낵"
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
 
   // --- 타입 정의 ---
@@ -80,6 +82,54 @@ useEffect(() => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [expiryDate, setExpiryDate] = useState(''); // 유통기한 상태 추가
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null); // 선택된 카테고리 ID
+
+  // 카테고리별 기본 유통기한 (일수 기준)
+  const getDefaultExpiryDays = (categoryId: number): number => {
+    // 카테고리 ID 별 기본 유통기한 설정
+    const categoryExpiryMap: { [key: number]: number } = {
+      // 신선 식품 (채소, 과일, 난류 등)
+      1: 14,   // 유제품(신선)
+      2: 30,   // 유제품(가공) - 더 긴 유통기한
+      5: 14,   // 채소(신선)
+      8: 21,   // 난류
+      9: 14,   // 잎채소
+      10: 14,  // 뿌리채소
+      13: 21,  // 과일(일반)
+      15: 14,  // 감귤류
+      17: 7,   // 어류(신鲜) - 단기
+      20: 3,   // 패류 - 단기
+      23: 14,  // 해조류(생)
+      25: 90,  // 냉동식품 - 장기
+      // 가공 식품 (유지식품, 음료 등)
+      29: 30,  // 음료(냉장)
+      30: 180, // 과자/스낵 - 장기
+      31: 365, // 원두/차 - 장기
+      32: 180, // 소스 - 중간~
+    };
+
+    return categoryExpiryMap[categoryId] || 30; // 기본 30일
+  };
+
+  // 카테고리 목록
+  const categoryList = Object.entries(CATEGORIES).map(([id, info]) => ({
+    id: parseInt(id),
+    ...info
+  }));
+
+  // 스캔된 데이터가 변경되거나 선택된 카테고리가 변경될 때 기본 유통기한 설정
+  useEffect(() => {
+    if (scannedData) {
+      const categoryId = selectedCategoryId || scannedData.category_id;
+      if (categoryId) {
+        const defaultDays = getDefaultExpiryDays(categoryId);
+        const futureDate = new Date();
+        futureDate.setDate(futureDate.getDate() + defaultDays);
+        const formattedDate = futureDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+        setExpiryDate(formattedDate);
+      }
+    }
+  }, [scannedData, selectedCategoryId]);
 
   // --- 사진 촬영 핸들러 ---
   const takePhoto = async () => {
@@ -274,14 +324,15 @@ useEffect(() => {
   const handleManualSubmission = async () => {
     console.log('\n--- [MANUAL] 직접 입력 데이터 제출 ---');
     
-    if (!manualName || !manualCategory) {
-      Alert.alert('입력 오류', '상품 이름과 카테고리를 모두 입력해주세요.');
+    if (!manualName) {
+      Alert.alert('입력 오류', '상품 이름을 입력해주세요.');
       return;
     }
     
     try {
-      const categoryId = await getCategoryIdByName(manualCategory);
-      
+      // Use the selected category ID directly
+      const categoryId = manualCategoryId;
+
       // 1. 먼저 products 테이블에 상품 정보 저장 (캐싱용)
       console.log('[STEP-1] products 테이블에 상품 정보 저장');
       const { error: productError } = await supabase
@@ -326,6 +377,7 @@ useEffect(() => {
         setShowManualEntry(false);
         setManualName('');
         setManualCategory('');
+        setManualCategoryId(30); // Reset to default category
         setScannedBarcode(null);
         setExpiryDate('');
         setError(null);
@@ -369,7 +421,13 @@ useEffect(() => {
 
           console.log('[API-3] API 호출 성공 - 응답 데이터:', response.data);
           
-          if (response.data && response.data.data) {
+          // Check status to handle not found case properly (now with 200 status)
+          if (response.data.status === 'not_found') {
+            console.log('[API-4] 바코드가 존재하지만 상품 정보가 없음:', barcode);
+            // 저장된 바코드 설정
+            setScannedBarcode(barcode);
+            setError('해당 바코드의 상품 정보를 찾을 수 없습니다.');
+          } else if (response.data && response.data.data) {
             const productData = response.data.data;
 
             // 💡 FIX: API 응답에 제품 이름이 있는지 확인 (product_name 사용)
@@ -379,7 +437,7 @@ useEffect(() => {
               console.log('  - 카테고리 ID:', productData.category_id);
               console.log('  - 카테고리 이름:', productData.category_name_kr);
               console.log('  - 소스:', productData.source);
-              
+
               setScannedData({ ...productData, name: productData.product_name, barcode }); // name 필드 명시적 매핑
               console.log('[API-5] 스캔 데이터 상태 업데이트 완료');
             } else {
@@ -387,7 +445,7 @@ useEffect(() => {
               setError('해당 바코드의 상품 정보를 찾을 수 없습니다 (이름 없음).');
             }
           } else {
-            console.log('[API-6] 경고: 응답에 data 필드가 없음');
+            console.log('[API-6] 경우: 응답에 data 필드가 없음');
             setError('서버 응답 형식이 올바르지 않습니다.');
           }
         } else {
@@ -402,6 +460,7 @@ useEffect(() => {
           console.error('  - 상태 코드:', err.response?.status);
           console.error('  - 응답 데이터:', JSON.stringify(err.response?.data, null, 2));
           
+          // 404 is no longer used for not found cases - handled as 200 with status 'not_found'
           if (err.response?.status === 404) {
             console.error('[ERR-2] 404 오류: 해당 바코드의 상품 정보를 찾을 수 없음');
             // 저장된 바코드 설정
@@ -436,6 +495,7 @@ useEffect(() => {
     setScannedData(null);
     setError(null);
     setExpiryDate('');
+    setSelectedCategoryId(null); // Reset selected category
     setIsProcessing(false);
     console.log('[MODAL-2] 상태 초기화 완료');
     console.log('--- [MODAL] 모달 닫기 완료 ---\n');
@@ -459,7 +519,8 @@ useEffect(() => {
     // Validate category_id exists in the categories_proper table
     const validCategoryIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]; // IDs from categories_proper.csv
 
-    let categoryId = scannedData.category_id;
+    // Use selected category if user changed it, otherwise use original category
+    let categoryId = selectedCategoryId || scannedData.category_id;
     if (!validCategoryIds.includes(categoryId)) {
       console.warn(`[INV-VALIDATION] Invalid category_id received: ${categoryId}. Using fallback category.`);
       categoryId = 30; // Using "과자/스낵" as a fallback (ID 30 exists in categories_proper.csv)
@@ -572,14 +633,72 @@ useEffect(() => {
             {scannedData && (
               <>
                 <Text style={styles.modalTitle}>상품 정보</Text>
-                <Text style={styles.modalText}>이름: {scannedData.name}</Text>
-                <Text style={styles.modalText}>카테고리: {scannedData.category_name_kr}</Text>
+                <Text style={styles.modalText}>{scannedData.name}</Text>
+
+                <Text style={styles.modalLabel}>카테고리 수정</Text>
+                <View style={styles.categorySelector}>
+                  <FlatList
+                    data={categoryList}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    keyExtractor={(item) => item.id.toString()}
+                    renderItem={({ item: cat }) => (
+                      <TouchableOpacity
+                        style={[
+                          styles.categoryItem,
+                          (selectedCategoryId || scannedData.category_id) === cat.id && styles.selectedCategory
+                        ]}
+                        onPress={() => setSelectedCategoryId(cat.id)}
+                      >
+                        <Text style={styles.categoryIcon}>{cat.icon}</Text>
+                        <Text style={styles.categoryText}>{cat.name}</Text>
+                      </TouchableOpacity>
+                    )}
+                  />
+                </View>
+
+                <Text style={styles.modalLabel}>유통기한</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="유통기한 입력 (YYYY-MM-DD)"
+                  placeholder="YYYY-MM-DD 형식으로 입력"
                   value={expiryDate}
                   onChangeText={setExpiryDate}
                 />
+
+                {/* 빠른 유통기한 선택 버튼들 */}
+                <View style={styles.expiryButtonsContainer}>
+                  <TouchableOpacity
+                    style={styles.expiryButton}
+                    onPress={() => {
+                      const date = new Date();
+                      date.setDate(date.getDate() + 7);
+                      setExpiryDate(date.toISOString().split('T')[0]);
+                    }}
+                  >
+                    <Text style={styles.expiryButtonText}>1주</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.expiryButton}
+                    onPress={() => {
+                      const date = new Date();
+                      date.setDate(date.getDate() + 14);
+                      setExpiryDate(date.toISOString().split('T')[0]);
+                    }}
+                  >
+                    <Text style={styles.expiryButtonText}>2주</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.expiryButton}
+                    onPress={() => {
+                      const date = new Date();
+                      date.setDate(date.getDate() + 30);
+                      setExpiryDate(date.toISOString().split('T')[0]);
+                    }}
+                  >
+                    <Text style={styles.expiryButtonText}>1개월</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <View style={styles.buttonContainer}>
                   <Button title="재고에 추가" onPress={handleAddToInventory} />
                 </View>
@@ -591,7 +710,7 @@ useEffect(() => {
                 <Text style={styles.modalText}>{error}</Text>
                 {error.includes('해당 바코드의 상품 정보를 찾을 수 없습니다') && (
                   <>
-                    <Text style={styles.modalSubText}>상품 정보를 직접 입력하고 재고에 추가할까요?</Text>
+                    <Text style={styles.modalSubText}>등록된 상품 정보가 없습니다. 직접 입력하시겠습니까?</Text>
                     <View style={styles.errorButtonContainer}>
                       <Button title="직접 입력" onPress={handleShowManualEntry} />
                       <Button title="취소" onPress={handleCloseModal} />
@@ -634,12 +753,29 @@ useEffect(() => {
           />
           
           <Text style={styles.manualEntryLabel}>카테고리</Text>
-          <TextInput
-            style={styles.manualInput}
-            placeholder="카테고리를 입력하세요 (예: 과일, 채소, 유제품)"
-            value={manualCategory}
-            onChangeText={setManualCategory}
-          />
+          <View style={styles.categorySelector}>
+            <FlatList
+              data={categoryList}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item: cat }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.categoryItem,
+                    manualCategoryId === cat.id && styles.selectedCategory
+                  ]}
+                  onPress={() => {
+                    setManualCategoryId(cat.id);
+                    setManualCategory(cat.name); // Update text to show category name
+                  }}
+                >
+                  <Text style={styles.categoryIcon}>{cat.icon}</Text>
+                  <Text style={styles.categoryText}>{cat.name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
           
           <Text style={styles.manualEntryLabel}>유통기한</Text>
           <TextInput
@@ -676,6 +812,15 @@ const styles = StyleSheet.create({
   modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
   modalContent: { backgroundColor: 'white', padding: 22, borderRadius: 10, width: '80%', alignItems: 'center' },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 12 },
+  modalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 15,
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+    paddingLeft: 10,
+  },
   modalText: { fontSize: 16, marginBottom: 8 },
   input: {
     width: '100%',
@@ -685,6 +830,26 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginTop: 10,
     paddingHorizontal: 10,
+  },
+  expiryButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: 10,
+    marginBottom: 15,
+  },
+  expiryButton: {
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#BBDEFB',
+  },
+  expiryButtonText: {
+    color: '#1976D2',
+    fontSize: 12,
+    fontWeight: '600',
   },
   buttonContainer: { marginTop: 15, width: '100%' },
   
@@ -796,5 +961,33 @@ const styles = StyleSheet.create({
   lottieAnimation: {
     width: 200,
     height: 200,
+  },
+
+  // Category selector styles
+  categorySelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  categoryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    margin: 5,
+    borderRadius: 20,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  selectedCategory: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#2196F3',
+  },
+  categoryIcon: {
+    fontSize: 18,
+    marginRight: 6,
+  },
+  categoryText: {
+    fontSize: 12,
   },
 });

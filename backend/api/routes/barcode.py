@@ -85,9 +85,16 @@ def lookup_barcode():
         # 모든 API에서 제품을 찾지 못했을 경우
         print(f"[LOOKUP] ❌ 모든 API에서 NOT FOUND: {barcode}")
         return jsonify({
-            'status': 'not_found', 
-            'message': '모든 API에서 해당 바코드의 상품 정보를 찾을 수 없습니다.'
-        }), 404
+            'status': 'not_found',
+            'message': '해당 바코드의 상품 정보를 찾을 수 없습니다. 직접 입력해주세요.',
+            'data': {
+                'barcode': barcode,
+                'product_name': '상품 정보 없음',
+                'category_id': None,
+                'manufacturer': '알 수 없음',
+                'source': 'not_found'
+            }
+        }), 200  # Use 200 instead of 404 to avoid error in app
 
     except Exception as e:
         print(f"[LOOKUP] Error in /lookup_barcode: {e}")

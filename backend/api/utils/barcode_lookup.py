@@ -95,13 +95,19 @@ def get_product_info_from_db(barcode: str):
         if not _supabase_client:
             print("[백엔드] 오류: Supabase 클라이언트가 초기화되지 않았습니다")
             return None
-        
+
         result = _supabase_client.table('products').select('*').eq('barcode', barcode).single().execute()
-        
+
         if result.data:
-            print(f"[백엔드] ✅ DB HIT: {barcode}")
-            return result.data
-        
+            # DB에 저장된 데이터가 유효한지 확인
+            product_name = result.data.get('product_name')
+            if product_name and product_name not in ['상품 정보 없음', 'NOT FOUND', '해당 없음', '']:
+                print(f"[백엔드] ✅ DB HIT: {barcode}")
+                return result.data
+            else:
+                print(f"[백엔드] ⚠️ DB HIT but no valid product info: {barcode}")
+                return None
+
         return None
     except Exception as e:
         print(f"[백엔드] DB 조회 오류: {e}")
