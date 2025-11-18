@@ -259,7 +259,11 @@ async def parse_clova_response_to_items(clova_response):
         final_items = []
         for item in items_with_category:
             item_name = item.get('item_name', '')
-            category_id = item.get('category_id', 37)  # 기본값: 기타(37)
+            # LLM이 ID를 문자열로 반환할 수 있으므로 정수형으로 변환
+            try:
+                category_id = int(item.get('category_id', 37))
+            except (ValueError, TypeError):
+                category_id = 37
             quantity = item.get('quantity', 1)
 
             # 카테고리 ID를 사용하여 카테고리 정보 가져오기
