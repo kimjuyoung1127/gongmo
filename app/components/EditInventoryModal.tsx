@@ -40,7 +40,7 @@ export default function EditInventoryModal({
       setName('');
       setQuantity('');
       setExpiryDate('');
-      setCategoryId(30); // Default to "과자/스낵"
+      setCategoryId(6); // Default to "육류(신鮮)" as the highest priority category
     }
   }, [item]);
 

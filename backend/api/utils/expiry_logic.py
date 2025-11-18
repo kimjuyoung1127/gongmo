@@ -67,3 +67,51 @@ def _get_category_expiry_days(category_name: str):
     """카테고리 유통기한 조회"""
     category_info = _get_category_info_by_name(category_name)
     return category_info['expiry_days']
+
+# --- ID 기반 카테고리 조회 함수 추가 ---
+_category_map_by_id_cache = None
+
+def _load_category_map_by_id():
+    """
+    Supabase DB에서 카테고리 정보를 ID 기반으로 로드하여 캐싱합니다.
+    """
+    global _category_map_by_id_cache
+    if _category_map_by_id_cache is not None:
+        return _category_map_by_id_cache
+
+    if not _supabase_client:
+        print("Warning: Supabase 클라이언트가 설정되지 않았습니다.")
+        # 기본값으로 ID 37에 대한 정보만 제공
+        _category_map_by_id_cache = {37: {'category_name_kr': '기타', 'default_expiry_days': 7}}
+        return _category_map_by_id_cache
+
+    try:
+        # categories 테이블에서 모든 카테고리 조회
+        response = _supabase_client.table('categories').select('*').execute()
+
+        if response.data:
+            category_map = {}
+            for row in response.data:
+                category_map[row['id']] = {
+                    "category_name_kr": row['category_name_kr'],
+                    "default_expiry_days": row['default_expiry_days']
+                }
+            print(f"Info: ID 기반으로 {len(category_map)}개의 카테고리를 성공적으로 로드했습니다.")
+            _category_map_by_id_cache = category_map
+            return category_map
+        else:
+            print("Warning: DB에서 카테고리를 찾을 수 없습니다.")
+            _category_map_by_id_cache = {37: {'category_name_kr': '기타', 'default_expiry_days': 7}}
+            return _category_map_by_id_cache
+
+    except Exception as e:
+        print(f"Error: DB 카테고리 로드 중 오류 발생: {e}")
+        _category_map_by_id_cache = {37: {'category_name_kr': '기타', 'default_expiry_days': 7}}
+        return _category_map_by_id_cache
+
+def get_category_info_by_id(category_id: int):
+    """
+    카테고리 ID를 기반으로 이름과 유통기한 정보를 조회합니다.
+    """
+    category_map = _load_category_map_by_id()
+    return category_map.get(category_id, {'category_name_kr': '기타', 'default_expiry_days': 7})

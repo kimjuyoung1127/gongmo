@@ -102,7 +102,7 @@ def _reconstruct_lines_from_boxes(fields):
 
 async def _extract_items_with_llm(full_text):
     """
-    LLM(Gemini)을 사용하여 전체 텍스트에서 상품명 목록을 추출합니다.
+    LLM(Gemini)을 사용하여 전체 텍스트에서 상품명과 카테고리를 추출합니다.
     """
     if not GEMINI_API_KEY:
         print("[LLM-ERROR] Gemini API 키가 설정되지 않아 상품 추출을 건너뜁니다.")
@@ -111,50 +111,100 @@ async def _extract_items_with_llm(full_text):
     try:
         print("[LLM] Gemini API 호출 시작...")
         model = genai.GenerativeModel('gemini-2.5-flash')
-        
+
+        # 카테고리 목록을 프롬프트에 포함
+        categories_info = """
+        1: 유제품(신선) - 🥛
+        2: 유제품(가공) - 🧈
+        3: 연질치즈 - 🧀
+        4: 경성치즈 - 🧀
+        6: 육류 - 🥩
+        7: 가공육 - 🥓
+        8: 난류 - 🥚
+        9: 잎채소 - 🥬
+        10: 줄기채소 - 🥒
+        11: 뿌리채소(저온) - 🍠
+        12: 발아채소 - 🌱
+        13: 열매채소 - 🍅
+        14: 버섯류 - 🍄
+        15: 과일(일반) - 🍎
+        16: 베리류 - 🍓
+        17: 감귤류 - 🍊
+        18: 열대과일 - 🥭
+        19: 어류(신선) - 🐟
+        20: 패류 - 🦞
+        21: 연체/갑각류 - 🦀
+        22: 해조류(생) - 🥬
+        23: 해조류(건조) - 🥬
+        24: 냉동식품 - ❄️
+        25: 건면 - 🍝
+        26: 생/냉장면 - 🍜
+        27: 빵(일반) - 🍞
+        28: 베이커리(크림/샌드) - 🥮
+        29: 음료(냉장) - 🥤
+        30: 음료(멸균/캔) - 🥤
+        31: 과자/스낵 - 🍪
+        32: 곡류/쌀 - 🌾
+        33: 소스/조미료 - 🧂
+        34: 김치/절임류 - 🥗
+        35: 통조림/건식품 - 🥫
+        36: 반조리/냉장 HMR - 🍽️
+        37: 반조리/냉동 HMR - 🍽️
+        38: 기타 - 📦
+        """
+
         prompt = f"""
-        당신은 영수증을 분석하여 상품 목록만 정확하게 추출하는 전문가입니다.
+        당신은 영수증을 분석하여 상품명과 카테고리를 정확하게 추출하는 전문가입니다.
         다음은 OCR로 스캔된 영수증 텍스트입니다.
 
         --- 영수증 텍스트 ---
         {full_text}
         --- 영수증 텍스트 끝 ---
 
-        위 텍스트에서 다음 규칙을 엄격하게 지켜 '상품명'만 추출하고, 그 외 모든 텍스트는 완벽하게 무시하십시오.
+        위 텍스트에서 다음 규칙을 엄격하게 지켜 '상품명'과 '카테고리 ID'를 함께 추출하고, 그 외 모든 텍스트는 완벽하게 무시하십시오.
+
+        **카테고리 목록:**
+        {categories_info}
 
         **규칙:**
         1. 상품명, 수량, 단가와 직접적으로 관련된 텍스트만 상품으로 간주합니다.
         2. 가게 이름, 주소, 전화번호, 사업자번호, 날짜, 시간, 합계, 부가세, 할인, 결제 정보, 카드 번호, 승인 번호 등은 절대 상품이 아닙니다.
         3. OCR 오류로 보이는 의미 없는 문자열(예: '그액', '듀호월호시액')은 상품이 아닙니다.
         4. 수량이나 가격만 나타내는 숫자(예: '1', '4,500')는 상품이 아닙니다.
-        5. 추출된 상품명 목록을 JSON 배열 형식으로만 반환해야 합니다. 설명이나 다른 텍스트 없이, 오직 JSON 배열만 출력하십시오.
+        5. 카테고리는 위의 목록에서 가장 적절한 것을 선택하십시오. 정확한 매칭이 없으면 38(기타)를 사용하십시오.
+        6. 수량 정보가 명시되어 있다면 함께 추출하되, 기본값은 1입니다.
+        7. 추출된 정보를 JSON 형식으로만 반환해야 합니다. 설명이나 다른 텍스트 없이, 오직 JSON만 출력하십시오.
 
         **출력 형식 예시:**
-        ["아메리카노", "바닐라 라떼", "초코 케이크"]
+        [
+          {{"item_name": "계란", "category_id": 8, "quantity": 1}},
+          {{"item_name": "소고기", "category_id": 6, "quantity": 1}},
+          {{"item_name": "딸기", "category_id": 16, "quantity": 1}}
+        ]
         """
 
         response = await model.generate_content_async(prompt)
-        
+
         # 응답에서 JSON 부분만 추출
         response_text = response.text
         print(f"[LLM-DEBUG] API 원본 응답: {response_text}")
-        
+
         # 마크다운 코드 블록(` ```json ... ``` `)이 포함된 경우 제거
         match = re.search(r'```json\s*([\s\S]*?)\s*```', response_text)
         if match:
             json_text = match.group(1)
         else:
             json_text = response_text
-            
+
         print(f"[LLM-DEBUG] 파싱할 JSON 텍스트: {json_text}")
-        
-        item_names = json.loads(json_text)
-        
-        if isinstance(item_names, list):
-            print(f"[LLM-SUCCESS] 상품명 {len(item_names)}개 추출 성공: {item_names}")
-            return item_names
+
+        items_data = json.loads(json_text)
+
+        if isinstance(items_data, list):
+            print(f"[LLM-SUCCESS] 상품명과 카테고리 {len(items_data)}개 추출 성공: {[item['item_name'] for item in items_data]}")
+            return items_data
         else:
-            print(f"[LLM-ERROR] 응답이 JSON 배열 형식이 아닙니다: {item_names}")
+            print(f"[LLM-ERROR] 응답이 JSON 배열 형식이 아닙니다: {items_data}")
             return []
 
     except Exception as e:
@@ -196,36 +246,43 @@ async def parse_clova_response_to_items(clova_response):
         # 5. 캐시 미스 시 LLM 호출 (3s)
         print(f"[LLM-CALL] 캐시 미스, Gemini API 호출: {ocr_hash[:8]}...")
 
-        # 2. LLM을 사용하여 상품명 목록 추출
-        print(f"[PARSER] 2. LLM 기반 상품명 추출 시작...")
-        item_names = await _extract_items_with_llm(full_text)
+        # 2. LLM을 사용하여 상품명과 카테고리 목록 추출
+        print(f"[PARSER] 2. LLM 기반 상품명과 카테고리 추출 시작...")
+        items_with_category = await _extract_items_with_llm(full_text)
 
-        if not item_names:
+        if not items_with_category:
             print("[PARSER] LLM이 상품을 추출하지 못했습니다.")
             return []
 
-        # 3. 추출된 각 상품명에 대해 카테고리 및 유통기한 정보 추가
-        print(f"[PARSER] 3. 카테고리 및 유통기한 정보 매핑 시작...")
+        # 3. 추출된 각 상품명에 대해 유통기한 정보 추가 (카테고리는 이미 LLM에서 제공됨)
+        print(f"[PARSER] 3. 유통기한 정보 매핑 시작...")
         final_items = []
-        for name in item_names:
-            category = _classify_product_category(name)
-            expiry_days = _get_category_expiry_days(category)
-            category_id = _get_category_id_by_name(category)
+        for item in items_with_category:
+            item_name = item.get('item_name', '')
+            category_id = item.get('category_id', 38)  # 기본값: 기타(38)
+            quantity = item.get('quantity', 1)
+
+            # 카테고리 ID를 사용하여 카테고리 이름과 유통기한 가져오기
+            # 카테고리 ID를 사용하여 카테고리 정보 가져오기
+            from .utils.expiry_logic import get_category_info_by_id
+            category_info = get_category_info_by_id(category_id)
+            category_name = category_info.get('category_name_kr', '기타') if category_info else '기타'
+            expiry_days = category_info.get('default_expiry_days', 7) if category_info else 7
 
             # 👆 category_id와 expiry_days까지 캐시에 저장하여 속도 최적화
             item_data = {
-                'item_name': name,
-                'category': category,
+                'item_name': item_name,
+                'category': category_name,
                 'category_id': category_id,
                 'expiry_days': expiry_days,
-                'quantity': 1,  # 기본값, 향후 LLM으로 추출 가능
+                'quantity': quantity,
                 'unit': '개',   # 기본값
                 'source': 'clova_ocr_llm',
                 'confidence_high': True, # LLM 결과를 신뢰
-                'raw_text': name
+                'raw_text': item_name
             }
             final_items.append(item_data)
-            print(f"[PARSER-SUCCESS] ✅ 상품 처리 완료: {name} ({category})")
+            print(f"[PARSER-SUCCESS] ✅ 상품 처리 완료: {item_name} (ID: {category_id}, {category_name})")
 
         # 6. 캐시 저장 (완전 처리된 결과물)
         _save_parse_cache(ocr_hash, final_items)
