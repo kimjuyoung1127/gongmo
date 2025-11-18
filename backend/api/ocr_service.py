@@ -8,12 +8,20 @@ import time
 import base64
 import re
 import json
+import hashlib
 import google.generativeai as genai
 from PIL import Image
 from io import BytesIO
+from supabase import create_client
 
 # utils 폴더의 함수를 상대 경로로 가져옴
 from .utils.expiry_logic import _get_category_id_by_name, _get_category_expiry_days
+from .cache_manager import ocr_memory_cache
+
+# supabase 클라이언트 생성
+supabase_url = os.environ.get('SUPABASE_URL')
+supabase_key = os.environ.get('SUPABASE_ANON_KEY')
+supabase = create_client(supabase_url, supabase_key) if supabase_url and supabase_key else None
 
 # --- 환경 변수 및 API 설정 ---
 CLOVA_OCR_API_URL = os.environ.get('CLOVA_OCR_API_URL')
@@ -162,21 +170,40 @@ async def parse_clova_response_to_items(clova_response):
         if 'images' not in clova_response or not clova_response['images']:
             print("[PARSER] 응답에 이미지 데이터 없음")
             return []
-        
+
         fields = clova_response['images'][0].get('fields', [])
-        
-        # 1. OCR 결과에서 전체 텍스트 블록 재구성
+
+        # 1. OCR 텍스트 재구성
         print(f"[PARSER] 1. 레이아웃 분석 및 전체 텍스트 재구성 시작...")
         full_text = _reconstruct_lines_from_boxes(fields)
-        
+
+        # 2. 캐시 해시 생성
+        ocr_hash = _generate_ocr_hash(full_text)
+
+        # 3. 메모리 캐시 먼저 확인 (0.1s)
+        memory_result = ocr_memory_cache.get(ocr_hash)
+        if memory_result:
+            print(f"[MEMORY-HIT] 메모리 캐시 적중 (0.1s): {ocr_hash[:8]}...")
+            return memory_result
+
+        # 4. 캐시 확인 (0.5s)
+        cached_result = await _get_cached_parse_result(ocr_hash)
+        if cached_result:
+            # 메모리 캐시에도 저장
+            ocr_memory_cache.set(ocr_hash, cached_result)
+            return cached_result
+
+        # 5. 캐시 미스 시 LLM 호출 (3s)
+        print(f"[LLM-CALL] 캐시 미스, Gemini API 호출: {ocr_hash[:8]}...")
+
         # 2. LLM을 사용하여 상품명 목록 추출
         print(f"[PARSER] 2. LLM 기반 상품명 추출 시작...")
         item_names = await _extract_items_with_llm(full_text)
-        
+
         if not item_names:
             print("[PARSER] LLM이 상품을 추출하지 못했습니다.")
             return []
-            
+
         # 3. 추출된 각 상품명에 대해 카테고리 및 유통기한 정보 추가
         print(f"[PARSER] 3. 카테고리 및 유통기한 정보 매핑 시작...")
         final_items = []
@@ -184,8 +211,9 @@ async def parse_clova_response_to_items(clova_response):
             category = _classify_product_category(name)
             expiry_days = _get_category_expiry_days(category)
             category_id = _get_category_id_by_name(category)
-            
-            product_data = {
+
+            # 👆 category_id와 expiry_days까지 캐시에 저장하여 속도 최적화
+            item_data = {
                 'item_name': name,
                 'category': category,
                 'category_id': category_id,
@@ -196,12 +224,16 @@ async def parse_clova_response_to_items(clova_response):
                 'confidence_high': True, # LLM 결과를 신뢰
                 'raw_text': name
             }
-            final_items.append(product_data)
+            final_items.append(item_data)
             print(f"[PARSER-SUCCESS] ✅ 상품 처리 완료: {name} ({category})")
+
+        # 6. 캐시 저장 (완전 처리된 결과물)
+        _save_parse_cache(ocr_hash, final_items)
+        ocr_memory_cache.set(ocr_hash, final_items)
 
         print(f"\n[PARSER-SUMMARY] 최종 추출된 상품 수: {len(final_items)}")
         return final_items
-        
+
     except Exception as e:
         print(f"[PARSER] 최종 파싱 중 오류: {str(e)}")
         return []
@@ -243,16 +275,71 @@ def resize_image_for_clova(image_path, max_size=2000, quality=95):
             if max(img.size) <= max_size:
                 with open(image_path, 'rb') as f:
                     return f.read()
-            
+
             ratio = max_size / max(img.size)
             new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
             img_resized = img.resize(new_size, Image.Resampling.LANCZOS)
-            
+
             output_buffer = BytesIO()
             img_resized.convert('RGB').save(output_buffer, format='JPEG', quality=quality, optimize=True)
             return output_buffer.getvalue()
-            
+
     except Exception as e:
         print(f"[CLOVA] 이미지 리사이즈 실패: {str(e)}")
         with open(image_path, 'rb') as f:
             return f.read()
+
+
+def _normalize_ocr_text(ocr_text: str) -> str:
+    """OCR 텍스트 정규화 - 실제 영수증 로그 기반 최적화"""
+    normalized = ocr_text.strip()
+
+    # 1. 연속 공백 → 단일 공백
+    normalized = re.sub(r'\s+', ' ', normalized)
+
+    # 2. 괄호 및 특수문자 제거
+    normalized = re.sub(r'[()\-_\*\+\=\[\]{}<>|\\/]', ' ', normalized)
+
+    # 3. 영문 소문자 통일
+    normalized = normalized.lower()
+
+    # 4. 최종 정리
+    return ' '.join(normalized.split())
+
+
+def _generate_ocr_hash(ocr_text: str) -> str:
+    """정규화된 OCR 텍스트로 SHA256 해시 생성"""
+    normalized_text = _normalize_ocr_text(ocr_text)
+    return hashlib.sha256(normalized_text.encode('utf-8')).hexdigest()
+
+
+async def _get_cached_parse_result(ocr_hash: str) -> dict:
+    """Supabase에서 캐시된 파싱 결과 조회"""
+    try:
+        response = supabase.table('llm_parse_cache')\
+            .select('final_items')\
+            .eq('ocr_hash', ocr_hash)\
+            .single()\
+            .execute()
+
+        if response.data:
+            print(f"[CACHE-HIT] LLM 캐시 적중 (0.5s): {ocr_hash[:8]}...")
+            return response.data['final_items']
+    except Exception as e:
+        print(f"[CACHE-ERROR] 캐시 조회 실패: {e}")
+
+    return None
+
+
+def _save_parse_cache(ocr_hash: str, final_items: list):
+    """최종 처리된 상품 목록을 캐시에 저장"""
+    try:
+        cache_data = {
+            'ocr_hash': ocr_hash,
+            'final_items': final_items
+        }
+
+        supabase.table('llm_parse_cache').upsert(cache_data).execute()
+        print(f"[CACHE-SAVE] LLM 결과 캐시 저장: {ocr_hash[:8]}...")
+    except Exception as e:
+        print(f"[CACHE-ERROR] 캐시 저장 실패: {e}")

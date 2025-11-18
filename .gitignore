@@ -26,3 +26,5 @@ app/.env # Frontend .env file
 .DS_Store
 .env
 .vscode/
+
+docs
