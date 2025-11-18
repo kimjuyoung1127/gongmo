@@ -171,7 +171,7 @@ async def _extract_items_with_llm(full_text):
         2. 가게 이름, 주소, 전화번호, 사업자번호, 날짜, 시간, 합계, 부가세, 할인, 결제 정보, 카드 번호, 승인 번호 등은 절대 상품이 아닙니다.
         3. OCR 오류로 보이는 의미 없는 문자열(예: '그액', '듀호월호시액')은 상품이 아닙니다.
         4. 수량이나 가격만 나타내는 숫자(예: '1', '4,500')는 상품이 아닙니다.
-        5. 카테고리는 위의 목록에서 가장 적절한 것을 선택하십시오. 정확한 매칭이 없으면 38(기타)를 사용하십시오.
+        5. 카테고리는 위의 목록에서 가장 적절한 것을 선택하십시오. 정확한 매칭이 없으면 37(기타)를 사용하십시오.
         6. 수량 정보가 명시되어 있다면 함께 추출하되, 기본값은 1입니다.
         7. 추출된 정보를 JSON 형식으로만 반환해야 합니다. 설명이나 다른 텍스트 없이, 오직 JSON만 출력하십시오.
 
@@ -259,7 +259,7 @@ async def parse_clova_response_to_items(clova_response):
         final_items = []
         for item in items_with_category:
             item_name = item.get('item_name', '')
-            category_id = item.get('category_id', 38)  # 기본값: 기타(38)
+            category_id = item.get('category_id', 37)  # 기본값: 기타(37)
             quantity = item.get('quantity', 1)
 
             # 카테고리 ID를 사용하여 카테고리 이름과 유통기한 가져오기
