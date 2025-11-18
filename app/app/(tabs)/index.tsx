@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import * as Haptics from 'expo-haptics'
 import { useAuth } from '../../hooks/useAuth'
 import { useDemoData } from '../../hooks/useDemoData'
+import { useRecipes } from '../../hooks/useRecipe'
 import InfoCard from '../../components/InfoCard'
 import FixedScanButton from '../../components/FixedScanButton'
 import LoginPromptBanner from '../../components/LoginPromptBanner'
@@ -32,6 +33,10 @@ export default function InventoryScreen() {
 
   const [realInventory, setRealInventory] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(false)
+
+  // 레시피 추천 데이터 가져오기
+  const userId = session?.user?.id;
+  const { recipes: recommendedRecipes, loading: recipesLoading, error: recipesError } = useRecipes(userId);
 
   // Demo guide modal state
   const [guideVisible, setGuideVisible] = useState(false)
@@ -312,15 +317,37 @@ export default function InventoryScreen() {
           title="냉파 레시피 추천"
           subtitle="보유 재료로 만들 수 있는 요리"
         >
-          <TouchableOpacity style={styles.recipeItem}>
-            <View style={styles.recipeContent}>
-              <Text style={styles.recipeTitle}>계란후라이드와 토스트</Text>
-              <Text style={styles.recipeDesc}>
-                보유한 계란으로 만드는 간단한 아침 식사
-              </Text>
+          {recipesLoading ? (
+            <View style={styles.recipeItem}>
+              <Text style={styles.recipeTitle}>레시피를 불러오는 중...</Text>
             </View>
-            <Text style={styles.recipeArrow}>→</Text>
-          </TouchableOpacity>
+          ) : recipesError ? (
+            <View style={styles.recipeItem}>
+              <Text style={styles.recipeTitle}>레시피를 불러오지 못했어요</Text>
+              <Text style={styles.recipeDesc}>다시 시도해 주세요</Text>
+            </View>
+          ) : recommendedRecipes && recommendedRecipes.length > 0 ? (
+            recommendedRecipes.slice(0, 2).map((recipe, index) => (
+              <TouchableOpacity
+                key={recipe.id || recipe.menu_name || index}
+                style={styles.recipeItem}
+                onPress={() => router.push('/(tabs)/recipe')}
+              >
+                <View style={styles.recipeContent}>
+                  <Text style={styles.recipeTitle}>{recipe.menu_name}</Text>
+                  <Text style={styles.recipeDesc}>
+                    {recipe.match_percentage}% 매칭 | {recipe.missing_ingredients?.length || 0}개 재료 부족
+                  </Text>
+                </View>
+                <Text style={styles.recipeArrow}>→</Text>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.recipeItem}>
+              <Text style={styles.recipeTitle}>추천 레시피가 없어요</Text>
+              <Text style={styles.recipeDesc}>재료를 더 추가해 보세요!</Text>
+            </View>
+          )}
         </InfoCard>
 
         {/* 로그인 유도 배너 (데모 모드일 때만) */}

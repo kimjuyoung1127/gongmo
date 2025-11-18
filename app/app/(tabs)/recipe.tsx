@@ -1,18 +1,48 @@
-import React from 'react'
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
-import { useAuth } from '../../hooks/useAuth'
-import { useRouter } from 'expo-router'
-import LoginPromptBanner from '../../components/LoginPromptBanner'
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
+import { useAuth } from '../../hooks/useAuth';
+import { useRouter } from 'expo-router';
+import { useRecipes, completeRecipe } from '../../hooks/useRecipe';
+import RecipeRecommendationList from '../../components/RecipeRecommendationList';
+import RecipeDetailModal from '../../components/RecipeDetailModal';
+import LoginPromptBanner from '../../components/LoginPromptBanner';
 
 export default function RecipeScreen() {
-  const { session } = useAuth()
-  const router = useRouter()
+  const { session } = useAuth();
+  const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+
+  const userId = session?.user?.id;
+
+  const {
+    recipes,
+    loading,
+    error,
+    refetch
+  } = useRecipes(userId);
+
+  const handleRecipePress = (recipe: any) => {
+    setSelectedRecipe(recipe);
+    setDetailModalVisible(true);
+  };
+
+  const handleCompleteRecipe = async (recipe: any) => {
+    if (userId) {
+      try {
+        await completeRecipe(recipe, userId);
+        // TODO: 사용자에게 완료 알림 제공
+        console.log('레시피 완료 처리 성공');
+      } catch (err) {
+        console.error('레시피 완료 처리 실패:', err);
+      }
+    }
+  };
 
   if (!session) {
     // Show demo content for non-logged users
     return (
       <View style={styles.container}>
-        <LoginPromptBanner 
+        <LoginPromptBanner
           message="레시피를 보려면 로그인이 필요합니다"
           buttonText="로그인하고 레시피 보기"
           onButtonPress={() => router.push('/sign-in')}
@@ -32,37 +62,79 @@ export default function RecipeScreen() {
           </View>
         </View>
       </View>
-    )
+    );
   }
 
-  // Show coming soon screen for logged users
   return (
     <View style={styles.container}>
-      <View style={styles.comingSoonContainer}>
-        <Text style={styles.comingSoonTitle}>🍳 레시피</Text>
-        <Text style={styles.comingSoonSubtitle}>
-          보유한 재료로 만들 수 있는 레시피를 추천해 드립니다
-        </Text>
-        <View style={styles.previewCard}>
-          <Text style={styles.previewTitle}>🔮 곧 출시될 기능들</Text>
-          <Text style={styles.previewFeature}>• 재료 기반 레시피 추천</Text>
-          <Text style={styles.previewFeature}>• 유통기한 임박 재료 활용법</Text>
-          <Text style={styles.previewFeature}>• 영양 성분 분석</Text>
-          <Text style={styles.previewFeature}>• 조리 시간별 필터링</Text>
-          <Text style={styles.previewFeature}>• 개인 취향 기반 추천</Text>
+      {loading && (!recipes || recipes.length === 0) ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0064FF" />
+          <Text style={styles.loadingText}>레시피를 불러오는 중...</Text>
         </View>
-        <TouchableOpacity style={styles.scanButton}>
-          <Text style={styles.scanButtonText}>먼저 재품을 스캔해 보세요</Text>
-        </TouchableOpacity>
-      </View>
+      ) : (
+        <>
+          <Text style={styles.sectionTitle}>추천 레시피</Text>
+          <RecipeRecommendationList
+            recipes={recipes}
+            onRecipePress={handleRecipePress}
+            loading={loading}
+            onRefresh={refetch}
+            refreshing={false}
+          />
+
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+        </>
+      )}
+
+      {/* 레시피 상세 모달 */}
+      <RecipeDetailModal
+        visible={detailModalVisible}
+        recipe={selectedRecipe}
+        onClose={() => setDetailModalVisible(false)}
+        onComplete={handleCompleteRecipe}
+      />
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 50,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    padding: 20,
+    backgroundColor: '#ffebee',
+    margin: 16,
+    borderRadius: 8,
+  },
+  errorText: {
+    color: '#c62828',
+    textAlign: 'center',
   },
   demoContent: {
     flex: 1,
@@ -105,58 +177,4 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     lineHeight: 22,
   },
-  comingSoonContainer: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  comingSoonTitle: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 12,
-  },
-  comingSoonSubtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 32,
-    lineHeight: 24,
-  },
-  previewCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    marginBottom: 32,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  previewTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 16,
-  },
-  previewFeature: {
-    fontSize: 15,
-    color: '#666',
-    marginBottom: 8,
-    lineHeight: 22,
-  },
-  scanButton: {
-    backgroundColor: '#0064FF',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  scanButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-})
+});

@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Alert, StyleSheet, View, TextInput, Button, Text, Image, TouchableOpacity } from 'react-native';
+import React, { useEffect } from 'react';
+import { Alert, StyleSheet, View, Text, Image, TouchableOpacity } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { Link } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { makeRedirectUri } from 'expo-auth-session';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -12,10 +13,8 @@ WebBrowser.maybeCompleteAuthSession();
 const redirectUri = makeRedirectUri({ scheme: 'app' });
 
 export default function SignInScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  
+  const router = useRouter();
+
   // Handle deep link URLs when the app is opened from a URL
   const url = Linking.useURL();
   useEffect(() => {
@@ -24,25 +23,18 @@ export default function SignInScreen() {
     }
   }, [url]);
 
-  async function signInWithEmail() {
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) Alert.alert('로그인 실패', error.message);
-    setLoading(false);
-  }
-
   // Function to parse tokens from deep link URL and set the session
   async function createSessionFromUrl(url: string) {
     try {
       console.log('[Deep Link] 딥 링크 URL 수신:', url);
-      
+
       // Extract the hash part from the URL (tokens are typically in the hash for OAuth)
       const urlObject = new URL(url);
-      
+
       // Parse the hash fragment manually to extract parameters
       const hashFragment = urlObject.hash.substring(1); // Remove the '#'
       const params: { [key: string]: string } = {};
-      
+
       // Split the hash fragment by '&' to get individual parameters
       const pairs = hashFragment.split('&');
       for (const pair of pairs) {
@@ -52,16 +44,18 @@ export default function SignInScreen() {
           params[decodeURIComponent(key)] = decodeURIComponent(value);
         }
       }
-      
+
       const accessToken = params['access_token'];
       const refreshToken = params['refresh_token'];
-      
+
       console.log('[Deep Link] 토큰 파싱 결과:');
       console.log('   - Access Token:', accessToken ? '있음' : '없음');
       console.log('   - Refresh Token:', refreshToken ? '있음' : '없음');
 
+      // Only proceed if both tokens are present (actual OAuth callback)
       if (!accessToken || !refreshToken) {
-        throw new Error('돌아온 URL에서 토큰 정보를 찾을 수 없습니다.');
+        console.log('[Deep Link] OAuth 토큰 없음 - 일반적인 URL 접근으로 간주');
+        return; // Just return without showing an error for non-OAuth URLs
       }
 
       console.log('[Deep Link] 토큰 추출 성공. Supabase 세션 설정 시도.');
@@ -72,15 +66,21 @@ export default function SignInScreen() {
       if (sessionError) throw sessionError;
 
       console.log('[Deep Link] Supabase 세션 설정 성공! 홈으로 이동합니다.');
+      // Navigate to home screen after successful login
+      router.replace('/(tabs)');
     } catch (e: any) {
       console.error('[Deep Link] URL에서 세션 생성 실패:', e?.message ?? e);
+      // Don't show alert if it's a non-OAuth scenario
+      if (e?.message?.includes('토큰 정보를 찾을 수 없습니다')) {
+        console.log('[Deep Link] OAuth 토큰 없는 일반 접근 - 알럿 표시 안 함');
+        return;
+      }
       Alert.alert('세션 생성 실패', e?.message ?? 'URL에서 세션을 생성하는 데 실패했습니다.');
     }
   }
 
   async function signInWithOAuth(provider: 'google' | 'kakao') {
     try {
-      setLoading(true);
       console.log(`\n--- [OAuth] ${provider} 로그인 프로세스 시작 ---`);
       console.log('[OAuth] 1. 사용할 리디렉션 URI:', redirectUri);
 
@@ -110,91 +110,130 @@ export default function SignInScreen() {
     } catch (e: any) {
       console.error('[OAuth] 최종 오류:', e?.message ?? e);
       Alert.alert('로그인 실패', e?.message ?? '알 수 없는 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
-      console.log('--- [OAuth] 프로세스 종료 ---\n');
     }
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>로그인</Text>
-      <TextInput style={styles.input} placeholder="이메일" value={email} onChangeText={setEmail}
-                 autoCapitalize="none" keyboardType="email-address" />
-      <TextInput style={styles.input} placeholder="비밀번호" value={password}
-                 onChangeText={setPassword} secureTextEntry />
-      <View style={styles.buttonContainer}>
-        <Button title="로그인" onPress={signInWithEmail} disabled={loading} />
-      </View>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <View style={styles.logoContainer}>
+          <Image
+            source={require('../assets/images/logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.appTitle}>냉장고 파먹기</Text>
+          <Text style={styles.appSubtitle}>당신의 식재료로 만드는 맞춤 레시피</Text>
+        </View>
 
-      <View style={styles.socialLoginContainer}>
-        <TouchableOpacity style={styles.socialButton} onPress={() => signInWithOAuth('google')} disabled={loading}>
-          <Image source={require('../assets/images/google-logo.png')} style={styles.socialLogo} />
-          <Text style={styles.socialButtonText}>구글로 로그인</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.socialButton} onPress={() => signInWithOAuth('kakao')} disabled={loading}>
-          <Image source={require('../assets/images/kakao-logo.png')} style={styles.socialLogo} />
-          <Text style={styles.socialButtonText}>카카오로 로그인</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.loginOptions}>
+          <Text style={styles.loginTitle}>로그인하고 맞춤 레시피를 받아보세요</Text>
 
-      <Link href="/sign-up" style={styles.link}>
-        계정이 없으신가요? 회원가입
-      </Link>
-    </View>
+          <TouchableOpacity
+            style={[styles.socialButton, styles.googleButton]}
+            onPress={() => signInWithOAuth('google')}
+          >
+            <Image source={require('../assets/images/google-logo.png')} style={styles.socialLogo} />
+            <Text style={styles.socialButtonText}>Google로 계속하기</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.socialButton, styles.kakaoButton]}
+            onPress={() => signInWithOAuth('kakao')}
+          >
+            <Image source={require('../assets/images/kakao-logo.png')} style={styles.socialLogo} />
+            <Text style={styles.socialButtonText}>카카오톡으로 계속하기</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            로그인 시 서비스 이용약관 및 개인정보처리방침에 동의하게 됩니다.
+          </Text>
+        </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    padding: 16,
+    backgroundColor: '#FFFFFF',
   },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 24,
+  content: {
+    flex: 1,
+    justifyContent: 'space-between',
+    padding: 24,
+    paddingTop: 80,
   },
-  input: {
-    height: 40,
-    borderColor: 'gray',
-    borderWidth: 1,
-    borderRadius: 5,
-    marginBottom: 12,
-    paddingHorizontal: 10,
-  },
-  buttonContainer: {
-    marginTop: 10,
-  },
-  socialLoginContainer: {
-    marginTop: 20,
+  logoContainer: {
     alignItems: 'center',
+    marginBottom: 60,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: 16,
+  },
+  appTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#000000',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  appSubtitle: {
+    fontSize: 14,
+    color: '#666666',
+    textAlign: 'center',
+  },
+  loginOptions: {
+    alignItems: 'center',
+  },
+  loginTitle: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#333333',
+    marginBottom: 24,
+    textAlign: 'center',
   },
   socialButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-    marginBottom: 10,
-    width: '80%',
     justifyContent: 'center',
+    width: '100%',
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  googleButton: {
+    backgroundColor: '#4285F4',
+    borderColor: '#4285F4',
+  },
+  kakaoButton: {
+    backgroundColor: '#FEE500',
+    borderColor: '#FEE500',
   },
   socialLogo: {
-    width: 24,
-    height: 24,
-    marginRight: 10,
+    width: 20,
+    height: 20,
+    marginRight: 12,
   },
   socialButtonText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
-  link: {
-    marginTop: 20,
+  footer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#999999',
     textAlign: 'center',
-    color: 'blue',
+    lineHeight: 18,
   },
 });

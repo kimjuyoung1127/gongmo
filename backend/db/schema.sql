@@ -136,6 +136,48 @@ CREATE INDEX IF NOT EXISTS idx_inventory_user_id ON public.inventory(user_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_barcode ON public.inventory(barcode);
 
 
+-- ===== 3.5. PUBLIC RECIPES TABLE (공용 레시피 정보 - 캐싱용) =====
+
+-- 🍳 레시피 정보 (외부 API 결과 캐싱용)
+CREATE TABLE public.recipes (
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+
+    -- 레시피 이름 (고유)
+    menu_name TEXT UNIQUE NOT NULL,
+
+    -- 레시피 데이터 (JSON 형식)
+    recipe_data JSONB NOT NULL,
+
+    -- 검색 키워드 (성능 최적화를 위한)
+    search_keywords TEXT[]
+);
+
+-- RLS 활성화
+ALTER TABLE public.recipes ENABLE ROW LEVEL SECURITY;
+
+-- 정책: 모든 사용자가 읽기 가능 (레시피 정보는 공용)
+CREATE POLICY "Allow read access to all users"
+ON public.recipes
+FOR SELECT USING (true);
+
+-- 정책: 로그인한 사용자만 쓰기 가능 (레시피 추가/수정)
+CREATE POLICY "Allow write for authenticated users"
+ON public.recipes
+FOR ALL WITH CHECK (auth.role() = 'authenticated');
+
+-- [성능] `updated_at` 자동 업데이트 트리거 연결
+CREATE TRIGGER handle_recipes_updated_at
+BEFORE UPDATE ON public.recipes
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_updated_at();
+
+-- [성능] 레시피 검색을 위한 인덱스
+CREATE INDEX IF NOT EXISTS idx_recipes_menu_name ON public.recipes(menu_name);
+CREATE INDEX IF NOT EXISTS idx_recipes_search_keywords ON public.recipes USING GIN(search_keywords);
+
+
 -- ===== 4. APP VIEW (앱을 위한 '바로가기 뷰') =====
 -- (upcoming_expirations 뷰는 제공된 내용과 동일하게 생성합니다)
 

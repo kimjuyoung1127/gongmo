@@ -272,3 +272,14 @@ CREATE TABLE auth.users (
   ...
 );
 */
+
+-- LLM 파싱 결과 캐시 테이블
+CREATE TABLE public.llm_parse_cache (
+    ocr_hash TEXT PRIMARY KEY,      -- 정규화된 OCR 해시
+    final_items JSONB NOT NULL,     -- 최종 처리된 상품 목록
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS 설정
+ALTER TABLE public.llm_parse_cache ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow access for all users" ON public.llm_parse_cache FOR ALL USING (true);
