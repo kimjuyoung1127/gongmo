@@ -223,7 +223,7 @@ def generate_recipe_with_gemini(ingredients: List[str]) -> Optional[Dict[str, An
 
     try:
         genai.configure(api_key=gemini_api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
 
         ingredients_str = ", ".join(ingredients)
         print(f"[AI 레시피/서비스] 재료: {ingredients_str}")
