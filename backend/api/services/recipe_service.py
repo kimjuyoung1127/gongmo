@@ -248,7 +248,7 @@ def generate_recipe_with_gemini(ingredients: List[str]) -> Optional[Dict[str, An
         """
         print(f"[AI 레시피/서비스] 생성 프롬프트 전송...")
         
-        response = model.generate_content(prompt, request_options={"timeout": 60})
+        response = model.generate_content(prompt)
         response_text = response.text.strip()
         print(f"[AI 레시피/서비스] Gemini API 응답 수신:\n---\n{response_text}\n---")
 
