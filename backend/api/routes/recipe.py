@@ -174,6 +174,25 @@ def complete_recipe():
         recipe_id = data.get('recipe_id')
         user_id = data.get('user_id')
         ingredients_used = data.get('ingredients_used', [])
+        
+        # AI 생성 레시피의 경우 ID가 없을 수 있음
+        # 이 경우 menu_name과 recipe_data를 받아와서 먼저 저장 후 ID 생성
+        if not recipe_id:
+            menu_name = data.get('menu_name')
+            recipe_data = data.get('recipe_data')
+            
+            if menu_name and recipe_data:
+                print(f"[레시피 완료] ID 없음, 새 레시피 저장 시도: {menu_name}")
+                from ..services.recipe_service import save_generated_recipe
+                saved_recipe = save_generated_recipe(menu_name, recipe_data, supabase_client)
+                
+                if saved_recipe:
+                    recipe_id = saved_recipe.get('id')
+                    print(f"[레시피 완료] 새 레시피 저장 완료, ID: {recipe_id}")
+                else:
+                    return jsonify({'error': '레시피 저장에 실패했습니다.'}), 500
+            else:
+                return jsonify({'error': '레시피 ID 또는 레시피 데이터가 필요합니다.'}), 400
 
         if not recipe_id or not user_id:
             return jsonify({'error': '레시피 ID와 사용자 ID가 필요합니다.'}), 400

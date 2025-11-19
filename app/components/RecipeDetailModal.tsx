@@ -11,8 +11,11 @@ interface RecipeDetailModalProps {
   onComplete: (recipe: any) => void;
 }
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({ visible, recipe, onClose, onComplete }) => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   if (!recipe) {
     return null;
@@ -21,7 +24,7 @@ const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({ visible, recipe, 
   const { menu_name, recipe_data, match_percentage, missing_ingredients } = recipe;
   const { ingredients, instructions, nutrition_info, cooking_time, difficulty, tips, image_url } = recipe_data || {};
 
-  const availableIngredients = ingredients?.filter((ing: any) => 
+  const availableIngredients = ingredients?.filter((ing: any) =>
     !missing_ingredients?.includes(ing.name)
   ) || [];
 
@@ -40,8 +43,8 @@ const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({ visible, recipe, 
           </TouchableOpacity>
           <Text style={styles.title} numberOfLines={2}>{menu_name}</Text>
         </View>
-        
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 + insets.bottom }]}>
           {/* 요약 카드 */}
           <View style={styles.summaryCard}>
             <View style={styles.summaryRow}>
@@ -64,18 +67,18 @@ const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({ visible, recipe, 
               )}
             </View>
           </View>
-          
+
           {/* 레시피 이미지 */}
           {image_url && (
             <View style={styles.imageContainer}>
               <Image source={{ uri: image_url }} style={styles.recipeImage} />
             </View>
           )}
-          
+
           {/* 재료 체크리스트 */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>필요 재료</Text>
-            
+
             {/* 보유 재료 */}
             {availableIngredients.length > 0 && (
               <View style={styles.ingredientsCategory}>
@@ -88,7 +91,7 @@ const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({ visible, recipe, 
                 ))}
               </View>
             )}
-            
+
             {/* 부족한 재료 */}
             {missing_ingredients?.length > 0 && (
               <View style={styles.ingredientsCategory}>
@@ -102,7 +105,7 @@ const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({ visible, recipe, 
               </View>
             )}
           </View>
-          
+
           {/* 조리 순서 */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>조리 순서</Text>
@@ -115,7 +118,7 @@ const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({ visible, recipe, 
               </View>
             ))}
           </View>
-          
+
           {/* AI 꿀팁 */}
           {tips && (
             <View style={styles.section}>
@@ -126,11 +129,11 @@ const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({ visible, recipe, 
             </View>
           )}
         </ScrollView>
-        
+
         {/* 하단 고정 버튼 */}
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity 
-            style={styles.completeButton} 
+        <View style={[styles.buttonContainer, { paddingBottom: 16 + insets.bottom }]}>
+          <TouchableOpacity
+            style={styles.completeButton}
             onPress={() => {
               onComplete(recipe);
               onClose();

@@ -101,7 +101,7 @@ export const useRecipeDetail = (menuName?: string) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const recipeDetail = await fetchRecipeDetail(menuName);
       setRecipe(recipeDetail);
     } catch (err: any) {
@@ -132,11 +132,17 @@ export const completeRecipe = async (recipe: any, userId: string) => {
       quantity_used: 1, // 실제 사용 수량은 후속 개선에서 반영 가능
     })) || [];
 
-    const payload = {
+    const payload: any = {
       recipe_id: recipe.id,
       user_id: userId,
       ingredients_used: ingredientsUsed,
     };
+
+    // ID가 없는 경우 (AI 생성 레시피) 데이터 포함
+    if (!recipe.id) {
+      payload.menu_name = recipe.menu_name;
+      payload.recipe_data = recipe.recipe_data;
+    }
 
     const result = await postCompleteRecipe(payload);
 

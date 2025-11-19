@@ -281,3 +281,27 @@ def generate_recipe_with_gemini(ingredients: List[str]) -> Optional[Dict[str, An
         if 'response_text' in locals():
             print(f"[AI 레시피/서비스] 오류 발생 시점의 응답 내용: {response_text}")
         return None
+
+def save_generated_recipe(menu_name: str, recipe_data: Dict[str, Any], supabase: Client) -> Optional[Dict[str, Any]]:
+    """
+    AI로 생성된 레시피를 DB에 저장합니다.
+    """
+    try:
+        print(f"[레시피 저장] AI 생성 레시피 저장 시도: {menu_name}")
+        
+        recipe_entry = {
+            "menu_name": menu_name,
+            "recipe_data": recipe_data,
+            "search_keywords": [menu_name]
+        }
+
+        insert_response = supabase.table('recipes').insert(recipe_entry).execute()
+
+        if insert_response.data:
+            print(f"[레시피 저장] ✅ DB 저장 성공: {menu_name}, ID: {insert_response.data[0].get('id')}")
+            return insert_response.data[0]
+        
+        return None
+    except Exception as e:
+        print(f"[레시피 저장 오류] {str(e)}")
+        return None

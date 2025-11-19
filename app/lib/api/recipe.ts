@@ -25,6 +25,8 @@ export interface CompleteRecipePayload {
     name: string;
     quantity_used: number;
   }>;
+  menu_name?: string;
+  recipe_data?: any;
 }
 
 // 레시피 추천 가져오기
@@ -163,11 +165,11 @@ export const postCompleteRecipe = async (payload: CompleteRecipePayload): Promis
         body: JSON.stringify(payload),
       }
     );
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const data = await response.json();
     return data;
   } catch (error) {
