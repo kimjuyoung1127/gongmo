@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase, InventoryItem } from '../lib/supabase';
-import { CATEGORIES } from '../lib/categories';
+import { getAllCategories, getCategoryInfo, Category } from '../lib/categories';
 
 interface EditInventoryModalProps {
   visible: boolean;
@@ -20,15 +20,23 @@ export default function EditInventoryModal({
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
-  const [categoryId, setCategoryId] = useState(0);
+  const [categoryId, setCategoryId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [categoryList, setCategoryList] = useState<Category[]>([]);
+  const [selectedCategoryIcon, setSelectedCategoryIcon] = useState('📦');
 
-  // 카테고리 목록
-  const categoryList = Object.entries(CATEGORIES).map(([id, info]) => ({
-    id: parseInt(id),
-    ...info
-  }));
+  // Fetch all categories when the modal becomes visible
+  useEffect(() => {
+    if (visible) {
+      const fetchCategories = async () => {
+        const categories = await getAllCategories();
+        setCategoryList(categories);
+      };
+      fetchCategories();
+    }
+  }, [visible]);
 
+  // Populate form when the item prop changes
   useEffect(() => {
     if (item) {
       setName(item.name);
@@ -38,25 +46,29 @@ export default function EditInventoryModal({
     } else {
       // Reset form when item is null
       setName('');
-      setQuantity('');
+      setQuantity('1');
       setExpiryDate('');
-      setCategoryId(6); // Default to "육류(신鮮)" as the highest priority category
+      setCategoryId(null);
     }
   }, [item]);
 
+  // Update selected category icon when categoryId changes
+  useEffect(() => {
+    if (categoryId !== null) {
+      const fetchCategoryIcon = async () => {
+        const info = await getCategoryInfo(categoryId);
+        setSelectedCategoryIcon(info.icon);
+      };
+      fetchCategoryIcon();
+    } else {
+      setSelectedCategoryIcon('📦');
+    }
+  }, [categoryId]);
+
+
   const handleSave = async () => {
-    if (!name.trim()) {
-      Alert.alert('오류', '상품 이름을 입력해주세요.');
-      return;
-    }
-
-    if (!quantity || isNaN(Number(quantity)) || Number(quantity) <= 0) {
-      Alert.alert('오류', '수량을 올바르게 입력해주세요.');
-      return;
-    }
-
-    if (!expiryDate) {
-      Alert.alert('오류', '유통기한을 입력해주세요.');
+    if (!name.trim() || !quantity || !expiryDate || categoryId === null) {
+      Alert.alert('오류', '모든 필드를 올바르게 입력해주세요.');
       return;
     }
 
@@ -69,9 +81,8 @@ export default function EditInventoryModal({
     setIsLoading(true);
 
     try {
-      // Validate that item has a valid ID for update
       if (!item?.id) {
-        throw new Error('Invalid item ID for update');
+        throw new Error('수정할 아이템의 ID가 유효하지 않습니다.');
       }
 
       const { data: updatedItem, error } = await supabase
@@ -83,18 +94,13 @@ export default function EditInventoryModal({
           category_id: categoryId,
           updated_at: new Date().toISOString()
         })
-        .eq('id', item.id) // Using non-null assertion since we validated above
+        .eq('id', item.id)
         .select()
         .single();
 
-      if (error) {
-        throw error;
-      }
-
-      if (updatedItem) {
-        onSave(updatedItem);
-        onClose();
-      }
+      if (error) throw error;
+      if (updatedItem) onSave(updatedItem);
+      
     } catch (error: any) {
       console.error('재고 수정 오류:', error);
       Alert.alert('오류', error.message || '재고 정보를 수정하는 중 문제가 발생했습니다.');
@@ -102,45 +108,6 @@ export default function EditInventoryModal({
       setIsLoading(false);
     }
   };
-
-  const handleDelete = async () => {
-    Alert.alert(
-      '삭제 확인',
-      `${item?.name} 항목을 정말 삭제하시겠습니까?`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Validate that item has a valid ID for deletion
-              if (!item?.id) {
-                throw new Error('Invalid item ID for deletion');
-              }
-
-              const { error } = await supabase
-                .from('inventory')
-                .delete()
-                .eq('id', item.id);
-
-              if (error) {
-                throw error;
-              }
-
-              onClose();
-            } catch (error: any) {
-              console.error('재고 삭제 오류:', error);
-              Alert.alert('오류', error.message || '재고 항목을 삭제하는 중 문제가 발생했습니다.');
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const categoryInfo = CATEGORIES[categoryId as keyof typeof CATEGORIES] ||
-    { icon: '📦', color: '#F5F5F5', name: '기타' };
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -157,7 +124,7 @@ export default function EditInventoryModal({
             {item && (
               <View style={styles.itemInfo}>
                 <TouchableOpacity style={styles.itemIcon} disabled>
-                  <Text style={styles.itemIconText}>{categoryInfo.icon}</Text>
+                  <Text style={styles.itemIconText}>{selectedCategoryIcon}</Text>
                 </TouchableOpacity>
                 <Text style={styles.itemId}>ID: {item.id}</Text>
               </View>
@@ -165,34 +132,17 @@ export default function EditInventoryModal({
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>상품 이름</Text>
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="상품 이름을 입력하세요"
-              />
+              <TextInput style={styles.input} value={name} onChangeText={setName} />
             </View>
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>수량</Text>
-              <TextInput
-                style={styles.input}
-                value={quantity}
-                onChangeText={setQuantity}
-                placeholder="수량을 입력하세요"
-                keyboardType="numeric"
-              />
+              <TextInput style={styles.input} value={quantity} onChangeText={setQuantity} keyboardType="numeric" />
             </View>
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>유통기한</Text>
-              <TextInput
-                style={styles.input}
-                value={expiryDate}
-                onChangeText={setExpiryDate}
-                placeholder="YYYY-MM-DD 형식으로 입력"
-                keyboardType="default"
-              />
+              <TextInput style={styles.input} value={expiryDate} onChangeText={setExpiryDate} placeholder="YYYY-MM-DD" />
             </View>
 
             <View style={styles.formGroup}>
@@ -202,13 +152,10 @@ export default function EditInventoryModal({
                   data={categoryList}
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  keyExtractor={(item) => item.id.toString()}
+                  keyExtractor={(cat) => cat.id.toString()}
                   renderItem={({ item: cat }) => (
                     <TouchableOpacity
-                      style={[
-                        styles.categoryItem,
-                        categoryId === cat.id && styles.selectedCategory
-                      ]}
+                      style={[ styles.categoryItem, categoryId === cat.id && styles.selectedCategory ]}
                       onPress={() => setCategoryId(cat.id)}
                     >
                       <Text style={styles.categoryIcon}>{cat.icon}</Text>
@@ -221,31 +168,13 @@ export default function EditInventoryModal({
           </ScrollView>
 
           <View style={styles.buttonContainer}>
-            <View style={styles.buttonGroup}>
-              <TouchableOpacity
-                style={[styles.button, styles.cancelButton]}
-                onPress={onClose}
-                disabled={isLoading}
-              >
-                <Text style={styles.cancelButtonText}>취소</Text>
-              </TouchableOpacity>
-              {item?.id && (
-                <TouchableOpacity
-                  style={[styles.button, styles.deleteButton]}
-                  onPress={handleDelete}
-                  disabled={isLoading}
-                >
-                  <Text style={styles.deleteButtonText}>삭제</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={[styles.button, styles.saveButton]}
-                onPress={handleSave}
-                disabled={isLoading}
-              >
-                <Text style={styles.saveButtonText}>{isLoading ? '저장 중...' : '저장'}</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={[styles.button, styles.saveButton]}
+              onPress={handleSave}
+              disabled={isLoading}
+            >
+              <Text style={styles.saveButtonText}>{isLoading ? '저장 중...' : '저장'}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </SafeAreaView>
@@ -257,12 +186,13 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
   modalContainer: {
     backgroundColor: 'white',
-    flex: 1,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    height: '90%',
     paddingTop: 10,
   },
   modalHeader: {
@@ -281,13 +211,9 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 8,
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   closeButtonText: {
-    fontSize: 18,
+    fontSize: 24,
     color: '#999',
   },
   content: {
@@ -333,15 +259,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
   },
   categorySelector: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    // Styles for category selector container
   },
   categoryItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
-    margin: 5,
+    marginRight: 10,
     borderRadius: 20,
     backgroundColor: '#F5F5F5',
     borderWidth: 1,
@@ -356,43 +281,20 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   categoryText: {
-    fontSize: 12,
+    fontSize: 14,
   },
   buttonContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  buttonGroup: {
-    flexDirection: 'row',
-    marginTop: 10,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
   },
   button: {
-    flex: 1,
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
-    marginHorizontal: 2, // Add small margin between buttons
-  },
-  deleteButton: {
-    backgroundColor: '#FFEBEE',
-  },
-  deleteButtonText: {
-    color: '#F44336',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  cancelButton: {
-    backgroundColor: '#F5F5F5',
-    marginRight: 10,
-  },
-  cancelButtonText: {
-    color: '#666',
-    fontWeight: '600',
-    fontSize: 16,
   },
   saveButton: {
     backgroundColor: '#2196F3',
-    marginLeft: 10,
   },
   saveButtonText: {
     color: 'white',

@@ -1,6 +1,6 @@
 import React, { useState, useRef,useEffect } from 'react';
 import { Platform } from 'react-native';
-import { View, Text, StyleSheet, Button, Modal, ActivityIndicator, Vibration, TextInput, Alert, TouchableOpacity, Pressable, Image, ImageBackground, FlatList } from 'react-native';
+import { View, Text, StyleSheet, Button, Modal, ActivityIndicator, Vibration, TextInput, Alert, TouchableOpacity, Pressable, Image, ImageBackground, FlatList, SafeAreaView, ScrollView } from 'react-native';
 import LottieView from 'lottie-react-native';
 
 import { useCameraPermission, useCameraDevice, Camera, useCodeScanner } from 'react-native-vision-camera';
@@ -10,8 +10,8 @@ import { supabase } from '../../lib/supabase'; // Supabase 클라이언트 임�
 
 import { ModeToggle } from '../../components/scan/ModeToggle';
 import { PhotoConfirmModal } from '../../components/scan/PhotoConfirmModal';
-import { ScannedProductData, BACKEND_URL, getCategoryIdByName } from '../../components/scan/ScanUtils';
-import { CATEGORIES } from '../../lib/categories'; 
+import { ScannedProductData, BACKEND_URL } from '../../components/scan/ScanUtils';
+import { getAllCategories, getCategoryInfo, Category } from '../../lib/categories'; 
 
 export default function ScanScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -19,42 +19,11 @@ export default function ScanScreen() {
   const isFocused = useIsFocused();
   const navigation = useNavigation(); // navigation 객체 가져오기
 
-  // 컴포넌트 마운트 시 권한 요청
-  useEffect(() => {
-    const requestPermissions = async () => {
-      if (!hasPermission) {
-        console.log('[PERMISSION] 카메라 권한 요청');
-        const granted = await requestPermission();
-        console.log('[PERMISSION] 권한 결과:', granted);
-      } else {
-        console.log('[PERMISSION] 카메라 권한 이미 있음');
-      }
-    };
-
-    requestPermissions();
-  }, [hasPermission]);
-  
   // Camera ref
   const camera = useRef<Camera>(null);
   
   // 스캔 모드 상태 ('barcode' | 'receipt')
   const [scanMode, setScanMode] = useState<'barcode' | 'receipt'>('barcode');
-
-// 컴포넌트 마운트 시 권한 요청
-useEffect(() => {
-  // 컴포넌트 마운트 시 권한 요청 로직
-  const requestPermissions = async () => {
-    if (!hasPermission) {
-      console.log('[PERMISSION] 카메라 권한 요청');
-      const granted = await requestPermission();
-      console.log('[PERMISSION] 권한 결과:', granted);
-    } else {
-      console.log('[PERMISSION] 카메라 권한 이미 있음');
-    }
-  };
-  
-  requestPermissions();
-}, [hasPermission]);
   
   // 영수증 촬영 관련 상태
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -64,7 +33,7 @@ useEffect(() => {
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualName, setManualName] = useState('');
   const [manualCategory, setManualCategory] = useState('');
-  const [manualCategoryId, setManualCategoryId] = useState(30); // Default to "과자/스낵"
+  const [manualCategoryId, setManualCategoryId] = useState<number | null>(null);
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
 
   // --- 타입 정의 ---
@@ -83,39 +52,32 @@ useEffect(() => {
   const [isLoading, setIsLoading] = useState(false);
   const [expiryDate, setExpiryDate] = useState(''); // 유통기한 상태 추가
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null); // 선택된 카테고리 ID
+  const [categoryList, setCategoryList] = useState<Category[]>([]);
 
-  // 카테고리별 기본 유통기한 (일수 기준)
-  const getDefaultExpiryDays = (categoryId: number): number => {
-    // 카테고리 ID 별 기본 유통기한 설정
-    const categoryExpiryMap: { [key: number]: number } = {
-      // 신선 식품 (채소, 과일, 난류 등)
-      1: 14,   // 유제품(신선)
-      2: 30,   // 유제품(가공) - 더 긴 유통기한
-      5: 14,   // 채소(신선)
-      8: 21,   // 난류
-      9: 14,   // 잎채소
-      10: 14,  // 뿌리채소
-      13: 21,  // 과일(일반)
-      15: 14,  // 감귤류
-      17: 7,   // 어류(신鲜) - 단기
-      20: 3,   // 패류 - 단기
-      23: 14,  // 해조류(생)
-      25: 90,  // 냉동식품 - 장기
-      // 가공 식품 (유지식품, 음료 등)
-      29: 30,  // 음료(냉장)
-      30: 180, // 과자/스낵 - 장기
-      31: 365, // 원두/차 - 장기
-      32: 180, // 소스 - 중간~
+  // 컴포넌트 마운트 또는 포커스 시 권한 요청 및 카테고리 로드
+  useEffect(() => {
+    const requestAndFetch = async () => {
+      if (isFocused) {
+        if (!hasPermission) {
+          console.log('[PERMISSION] 카메라 권한 요청');
+          await requestPermission();
+        }
+        console.log('[DATA] 카테고리 목록 로드');
+        const categories = await getAllCategories();
+        setCategoryList(categories);
+      }
     };
-
-    return categoryExpiryMap[categoryId] || 30; // 기본 30일
+    requestAndFetch();
+  }, [hasPermission, isFocused]);
+  
+  // 카테고리별 기본 유통기한 (일수 기준) - 이 함수는 DB와 연동되지 않아 잠재적 버그가 있음
+  const getDefaultExpiryDays = (categoryId: number): number => {
+    const category = categoryList.find(c => c.id === categoryId);
+    // A more robust solution would be to have default_expiry_days in the category object
+    // For now, we use a fallback map if not found.
+    const fallbackMap: { [key: number]: number } = { 1: 14, 2: 30, 5: 14, 8: 21, 9: 14, 10: 14, 13: 21, 15: 14, 17: 7, 20: 3, 23: 14, 25: 90, 29: 30, 30: 180, 31: 365, 32: 180 };
+    return fallbackMap[categoryId] || 30;
   };
-
-  // 카테고리 목록
-  const categoryList = Object.entries(CATEGORIES).map(([id, info]) => ({
-    id: parseInt(id),
-    ...info
-  }));
 
   // 스캔된 데이터가 변경되거나 선택된 카테고리가 변경될 때 기본 유통기한 설정
   useEffect(() => {
@@ -134,166 +96,68 @@ useEffect(() => {
   // --- 사진 촬영 핸들러 ---
   const takePhoto = async () => {
     console.log('\n--- [PHOTO] 영수증 사진 촬영 시작 ---');
-    
     try {
-      // react-native-vision-camera로 사진 촬영
-      const photo = await camera.current?.takePhoto({
-        qualityPrioritization: 'quality',
-        flash: 'auto',
-        enableShutterSound: true,
-        photo: true, // 👈 사진 촬영 활성화
-      });
-
-      console.log('[PHOTO-1] 사진 촬영 결과:', photo);
-      
+      const photo = await camera.current?.takePhoto({ qualityPrioritization: 'quality', flash: 'auto', enableShutterSound: true });
       if (photo) {
-        console.log('[PHOTO-2] 촬영된 이미지 URI:', photo.path);
-        
-        // 안드로이드에서는 file:// 프로토콜 추가
         const imageUri = Platform.OS === 'android' ? `file://${photo.path}` : photo.path;
-        console.log('[PHOTO-2-1] 최종 이미지 URI:', imageUri);
-        
         setCapturedImage(imageUri);
         setShowPhotoConfirm(true);
-        console.log('[PHOTO-3] 사진 확인 화면 표시');
       } else {
-        console.log('[PHOTO-4] 사진 촬영 실패');
         Alert.alert('오류', '사진 촬영에 실패했습니다. 다시 시도해주세요.');
       }
     } catch (error) {
       console.error('[PHOTO-ERROR] 사진 촬영 중 오류:', error);
       Alert.alert('오류', '사진 촬영 중 문제가 발생했습니다.');
     }
-    
-    console.log('--- [PHOTO] 영수증 사진 촬영 완료 ---\n');
   };
 
   const uploadReceiptToBackend = async (imageUri: string) => {
     console.log('\n--- [OCR] 영수증 업로드 시작 ---');
-
+    setIsLoading(true);
     try {
-      // 현재 로그인된 사용자 정보 가져오기
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        console.error('[USER-ERROR] 사용자 정보를 가져올 수 없습니다:', userError);
-        Alert.alert('오류', '로그인이 필요합니다. 다시 로그인해주세요.');
-        return null;
-      }
-
-      console.log('[USER] 현재 사용자 ID:', user.id);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('로그인이 필요합니다.');
 
       const formData = new FormData();
-      formData.append('image', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: 'receipt.jpg',
-      } as any);
-      formData.append('user_id', user.id);  // ✅ user_id 전송 추가
-
-      // 서버 콜드 스타트 문제를 고려하여 타임아웃을 넉넉하게 설정 (2분)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2분 타임아웃
+      formData.append('image', { uri: imageUri, type: 'image/jpeg', name: 'receipt.jpg' } as any);
+      formData.append('user_id', user.id);
 
       const response = await fetch(`${BACKEND_URL}/upload_receipt`, {
         method: 'POST',
         body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        signal: controller.signal,
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      clearTimeout(timeoutId);
-
-      console.log('[OCR-DEBUG] 응답 상태:', response.status);
-      console.log('[OCR-DEBUG] 응답 헤더:', response.headers);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
-
-      if (data.error) {
-        console.error('[OCR-ERROR] 서버 오류:', data.error);
-        Alert.alert('오류', `영수증 처리 중 문제가 발생했습니다: ${data.error}`);
-        return null;
-      }
-
-      console.log('[OCR-SUCCESS] 처리 완료:', data.processed_count, '개 품목');
-
-      return data;
-    } catch (error) {
+      if (data.error) throw new Error(data.error);
+      
+      Alert.alert('성공', `${data.processed_count || 0}개 품목이 재고에 추가되었습니다.`, [
+        { text: '확인', onPress: () => navigation.navigate('index' as never) }
+      ]);
+    } catch (error: any) {
       console.error('[OCR-ERROR] 업로드 실패:', error);
-      if (error.name === 'AbortError') {
-        Alert.alert('오류', '서버 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.');
-      } else {
-        Alert.alert('오류', '영수증을 업로드하는 중 문제가 발생했습니다.');
-      }
-      return null;
+      Alert.alert('오류', '영수증 업로드 중 문제가 발생했습니다.');
     } finally {
-      console.log('--- [OCR] 영수증 업로드 완료 ---\n');
+      setIsLoading(false);
     }
   };
 
-  const handleUsePhoto = async () => {
-    console.log('\n--- [PHOTO-CONFIRM] 사진 사용 선택 ---');
+  const handleUsePhoto = () => {
     setShowPhotoConfirm(false);
-
-    if (!capturedImage) {
-      Alert.alert('오류', '촬영된 사진이 없습니다.');
-      return;
+    if (capturedImage) {
+      uploadReceiptToBackend(capturedImage);
     }
-
-    // 로딩 상태 설정 - OCR 처리 시작
-    setIsLoading(true);
-
-    try {
-      // 실제 OCR 처리 시작
-      const receiptData = await uploadReceiptToBackend(capturedImage);
-
-      if (receiptData) {
-        console.log(`✅ [OCR-SUCCESS] ${receiptData.processed_count || 0}개 품목을 재고에 추가했습니다.`);
-
-        // 바로 재고 화면으로 이동
-        Alert.alert(
-          '성공',
-          `${receiptData.processed_count || 0}개 품목이 재고에 추가되었습니다.`,
-          [
-            {
-              text: '확인',
-              onPress: () => {
-                console.log('[NAV] 재고 화면(index)으로 이동');
-                navigation.navigate('index' as never);
-              }
-            }
-          ]
-        );
-      }
-    } finally {
-      // 로딩 상태 해제 - OCR 처리 완료
-      setIsLoading(false);
-    }
-
-    console.log('--- [PHOTO-CONFIRM] 처리 완료 ---\n');
   };
 
   const handleRetakePhoto = () => {
-    console.log('\n--- [PHOTO-CONFIRM] 재촬영 선택 ---');
     setCapturedImage(null);
     setShowPhotoConfirm(false);
-    console.log('--- [PHOTO-CONFIRM] 재촬영 준비 완료 ---\n');
   };
 
   // --- 모드 전환 핸들러 ---
   const handleModeChange = (value: string) => {
-    console.log(`\n--- [MODE] 모드 전환 요청: ${value} ---`);
-    // ModeToggle에서 직접 'barcode' 또는 'receipt' 키를 전달하므로, 그대로 사용
     const newMode = value as 'barcode' | 'receipt';
-    console.log(`[MODE] 변환될 모드: ${newMode}, 현재 모드: ${scanMode} ---`);
-
-    // 먼저 상태 초기화 후 모드 변경
     setScannedData(null);
     setError(null);
     setExpiryDate('');
@@ -304,235 +168,94 @@ useEffect(() => {
     setManualName('');
     setManualCategory('');
     setScannedBarcode(null);
-
-    // 모드 상태 변경
     setScanMode(newMode);
-    console.log(`[MODE] 모드 변경 완료: ${scanMode} -> ${newMode} ---`);
-    console.log('[MODE] 모드 전환 완료, 상태 초기화됨\n');
   };
   
-  
-
-
   // --- 직접 입력 핸들러 ---
   const handleShowManualEntry = () => {
-    console.log('\n--- [MANUAL] 직접 입력 화면 표시 ---');
     setShowManualEntry(true);
-    console.log('[MANUAL] 직접 입력 화면 활성화\n');
   };
 
   const handleManualSubmission = async () => {
-    console.log('\n--- [MANUAL] 직접 입력 데이터 제출 ---');
-    
-    if (!manualName) {
-      Alert.alert('입력 오류', '상품 이름을 입력해주세요.');
+    if (!manualName || !manualCategoryId) {
+      Alert.alert('입력 오류', '상품 이름과 카테고리를 모두 선택해주세요.');
       return;
     }
     
     try {
-      // Use the selected category ID directly
-      const categoryId = manualCategoryId;
+      await supabase.from('products').upsert([{
+        barcode: scannedBarcode,
+        product_name: manualName,
+        category_id: manualCategoryId,
+        source: 'user_contribution',
+        verified: false,
+      }], { onConflict: 'barcode' });
 
-      // 1. 먼저 products 테이블에 상품 정보 저장 (캐싱용)
-      console.log('[STEP-1] products 테이블에 상품 정보 저장');
-      const { error: productError } = await supabase
-        .from('products')
-        .upsert([{
-          barcode: scannedBarcode,
-          product_name: manualName,
-          category_id: categoryId,
-          source: 'user_contribution',
-          verified: false,
-        }], {
-          onConflict: 'barcode'
-        });
+      await supabase.from('inventory').insert([{
+        name: manualName,
+        barcode: scannedBarcode,
+        category_id: manualCategoryId,
+        expiry_date: expiryDate,
+        quantity: 1,
+      }]);
 
-      if (productError) {
-        console.error('[PRODUCT-ERROR] products 테이블 저장 오류:', productError);
-      } else {
-        console.log('[PRODUCT-SUCCESS] products 테이블 저장 성공');
-      }
-
-      // 2. inventory 테이블에 개인 재고 저장
-      console.log('[STEP-2] inventory 테이블에 재고 저장');
-      const { data: inventoryData, error: inventoryError } = await supabase
-        .from('inventory')
-        .insert([{
-          name: manualName,
-          barcode: scannedBarcode,
-          category_id: categoryId,
-          expiry_date: expiryDate,
-          quantity: 1,
-        }])
-        .select();
-
-      if (inventoryError) {
-        console.error('[MANUAL-ERROR] inventory 테이블 저장 오류:', inventoryError);
-        Alert.alert('저장 실패', '재고 정보를 저장하는 중 문제가 발생했습니다.');
-      } else {
-        console.log('[MANUAL-SUCCESS] 재고 정보 저장 성공:', inventoryData);
-        Alert.alert('저장 성공', '상품이 재고에 추가되었습니다. 다른 사용자도 이 상품 정보를 공유받을 수 있습니다.');
-        
-        // 상태 초기화 및 모달 닫기
-        setShowManualEntry(false);
-        setManualName('');
-        setManualCategory('');
-        setManualCategoryId(30); // Reset to default category
-        setScannedBarcode(null);
-        setExpiryDate('');
-        setError(null);
-        
-        // 재고 목록 탭으로 이동
-        navigation.navigate('index');
-      }
-    } catch (error) {
+      Alert.alert('저장 성공', '상품이 재고에 추가되었습니다.');
+      setShowManualEntry(false);
+      handleCloseModal();
+      navigation.navigate('index' as never);
+    } catch (error: any) {
       console.error('[MANUAL-ERROR] 제출 중 오류:', error);
       Alert.alert('오류', '상품 정보 제출 중 문제가 발생했습니다.');
     }
-    
-    console.log('--- [MANUAL] 직접 데이터 제출 완료 ---\n');
   };
 
   // --- Code Scanner 훅 구현 ---
   const codeScanner = useCodeScanner({
-    codeTypes: ['ean-13'],  // 바코드만 스캔 (QR 코드 제외)
+    codeTypes: ['ean-13'],
     onCodeScanned: async (codes) => {
-      if (isProcessing || codes.length === 0) {
-        return;
-      }
+      if (isProcessing || codes.length === 0) return;
       
       const barcode = codes[0].value;
-      console.log(`\n--- [BARCODE-SCAN] 바코드 인식 시작 ---`);
-      console.log(`[SCAN-1] 인식된 바코드: ${barcode}`);
-      console.log(`[SCAN-2] 바코드 타입: ${codes[0].type}`);
-
       setIsProcessing(true);
       setIsLoading(true);
       Vibration.vibrate(100);
-      console.log(`[SCAN-3] 처리 상태 변경: isProcessing=true, isLoading=true`);
-      console.log(`[SCAN-4] 백엔드 API 호출 준비: ${BACKEND_URL}/lookup_barcode`);
 
       try {
-        console.log(`[API-1] API 요청 시작 - 바코드: ${barcode}`);
         const response = await axios.post(`${BACKEND_URL}/lookup_barcode`, { barcode });
-        
-        if (response.status === 200) {
-          console.log('[API-2] API 응답 수신 - 상태 코드: ${response.status}');
-
-          console.log('[API-3] API 호출 성공 - 응답 데이터:', response.data);
-          
-          // Check status to handle not found case properly (now with 200 status)
-          if (response.data.status === 'not_found') {
-            console.log('[API-4] 바코드가 존재하지만 상품 정보가 없음:', barcode);
-            // 저장된 바코드 설정
-            setScannedBarcode(barcode);
-            setError('해당 바코드의 상품 정보를 찾을 수 없습니다.');
-          } else if (response.data && response.data.data) {
-            const productData = response.data.data;
-
-            // 💡 FIX: API 응답에 제품 이름이 있는지 확인 (product_name 사용)
-            if (productData && productData.product_name) {
-              console.log('[API-4] 제품 정보 수신:');
-              console.log('  - 이름:', productData.product_name); // product_name 사용
-              console.log('  - 카테고리 ID:', productData.category_id);
-              console.log('  - 카테고리 이름:', productData.category_name_kr);
-              console.log('  - 소스:', productData.source);
-
-              setScannedData({ ...productData, name: productData.product_name, barcode }); // name 필드 명시적 매핑
-              console.log('[API-5] 스캔 데이터 상태 업데이트 완료');
-            } else {
-              console.log('[API-6] 오류: API가 제품 이름 없이 응답함');
-              setError('해당 바코드의 상품 정보를 찾을 수 없습니다 (이름 없음).');
-            }
-          } else {
-            console.log('[API-6] 경우: 응답에 data 필드가 없음');
-            setError('서버 응답 형식이 올바르지 않습니다.');
-          }
+        if (response.data.status === 'not_found') {
+          setScannedBarcode(barcode);
+          setError('해당 바코드의 상품 정보를 찾을 수 없습니다.');
+        } else if (response.data && response.data.data?.product_name) {
+          setScannedData({ ...response.data.data, name: response.data.data.product_name, barcode });
         } else {
-          console.log(`[API-7] 예기치 않은 응답 상태 코드: ${response.status}`);
-          setError('서버 응답이 올바르지 않습니다.');
+          setError('서버 응답 형식이 올바르지 않습니다.');
         }
-      } catch (err) {
-        console.error('\n--- [ERROR] 바코드 API 호출 실패 ---');
-        if (axios.isAxiosError(err)) {
-          console.error('[ERR-1] Axios 오류 발생:');
-          console.error('  - 메시지:', err.message);
-          console.error('  - 상태 코드:', err.response?.status);
-          console.error('  - 응답 데이터:', JSON.stringify(err.response?.data, null, 2));
-          
-          // 404 is no longer used for not found cases - handled as 200 with status 'not_found'
-          if (err.response?.status === 404) {
-            console.error('[ERR-2] 404 오류: 해당 바코드의 상품 정보를 찾을 수 없음');
-            // 저장된 바코드 설정
-            setScannedBarcode(barcode);
-            setError('해당 바코드의 상품 정보를 찾을 수 없습니다.');
-          } else if (err.response?.status === 500) {
-            console.error('[ERR-3] 500 오류: 서버 내부 오류 발생');
-            setError('서버에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
-          } else {
-            console.error('[ERR-4] 기타 API 오류:', err.response?.status);
-            setError('서버에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
-          }
-        } else {
-          console.error('[ERR-5] 네트워크 오류 또는 알 수 없는 오류:');
-          console.error('  - 전체 오류 객체:', JSON.stringify(err, null, 2));
-          setError('네트워크 연결을 확인해주세요.');
-        }
-        setIsProcessing(false);
-        console.log('[ERR-6] isProcessing 상태 초기화');
+      } catch (err: any) {
+        console.error('[ERROR] 바코드 API 호출 실패:', err.response?.data || err.message);
+        setScannedBarcode(barcode);
+        setError('해당 바코드의 상품 정보를 찾을 수 없습니다.');
       } finally {
         setIsLoading(false);
-        setIsProcessing(false);
-        console.log(`[SCAN-5] 로딩 상태 변경: isLoading=false, isProcessing=false`);
-        console.log(`--- [BARCODE-SCAN] 바코드 인식 완료 ---\n`);
       }
     }
   });
 
   const handleCloseModal = () => {
-    console.log('\n--- [MODAL] 모달 닫기 시작 ---');
-    console.log('[MODAL-1] 상태 초기화 시작');
     setScannedData(null);
     setError(null);
     setExpiryDate('');
-    setSelectedCategoryId(null); // Reset selected category
+    setSelectedCategoryId(null);
     setIsProcessing(false);
-    console.log('[MODAL-2] 상태 초기화 완료');
-    console.log('--- [MODAL] 모달 닫기 완료 ---\n');
   };
 
   const handleAddToInventory = async () => {
-    console.log('\n--- [INVENTORY] 재고 추가 시작 ---');
-    
-    if (!scannedData) {
-      console.log('[INV-1] 오류: 스캔된 상품 정보 없음');
-      Alert.alert('오류', '상품 정보가 없습니다.');
-      return;
-    }
-    
-    if (!expiryDate) {
-      console.log('[INV-2] 오류: 유통기한 미입력');
-      Alert.alert('입력 오류', '유통기한을 입력해주세요. (예: 2025-12-31)');
+    if (!scannedData || !expiryDate) {
+      Alert.alert('입력 오류', '유통기한을 입력해주세요.');
       return;
     }
 
-    // Validate category_id exists in the categories_proper table
-    const validCategoryIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]; // IDs from categories_proper.csv
-
-    // Use selected category if user changed it, otherwise use original category
-    let categoryId = selectedCategoryId || scannedData.category_id;
-    if (!validCategoryIds.includes(categoryId)) {
-      console.warn(`[INV-VALIDATION] Invalid category_id received: ${categoryId}. Using fallback category.`);
-      categoryId = 30; // Using "과자/스낵" as a fallback (ID 30 exists in categories_proper.csv)
-    }
-
-    const newInventoryItem: {
-      name: string;
-      category_id: number;
-      expiry_date: string;
-      barcode: string;
-      quantity: number;
-    } = {
+    const categoryId = selectedCategoryId || scannedData.category_id;
+    const newInventoryItem = {
       name: scannedData.name,
       category_id: categoryId,
       expiry_date: expiryDate,
@@ -540,57 +263,21 @@ useEffect(() => {
       quantity: 1,
     };
 
-    console.log('[INV-3] 재고 추가 시도 - 보낼 데이터:');
-    console.log('  - 이름:', newInventoryItem.name);
-    console.log('  - 카테고리 ID:', newInventoryItem.category_id);
-    console.log('  - 유통기한:', newInventoryItem.expiry_date);
-    console.log('  - 바코드:', newInventoryItem.barcode);
-    console.log('  - 수량:', newInventoryItem.quantity);
-
     try {
-      console.log('[INV-4] Supabase INSERT 쿼리 실행 중...');
-      const { data, error: dbError } = await supabase
-        .from('inventory')
-        .insert([newInventoryItem])
-        .select();
-
-      if (dbError) {
-        console.error('[INV-5] Supabase 저장 오류 발생:', dbError);
-        console.error('  - 오류 코드:', dbError.code);
-        console.error('  - 오류 메시지:', dbError.message);
-        console.error('  - HTTP 응답 코드:', dbError.code); // PostgrestError는 statusCode 대신 code 사용
-        Alert.alert('저장 실패', `${dbError.message} (코드: ${dbError.code})`);
-      } else {
-        console.log('[INV-6] Supabase 저장 성공!');
-        console.log('  - 삽입된 데이터:', data);
-        Alert.alert('저장 성공', '재고에 상품이 추가되었습니다.');
-        handleCloseModal();
-        navigation.navigate('index'); // 재고 목록 탭으로 이동
-      }
+      const { error: dbError } = await supabase.from('inventory').insert([newInventoryItem]);
+      if (dbError) throw dbError;
+      Alert.alert('저장 성공', '재고에 상품이 추가되었습니다.');
+      handleCloseModal();
+      navigation.navigate('index' as never);
     } catch (error: any) {
-      console.error('[INV-7] 재고 추가 중 예외 발생:', error);
+      console.error('[INVENTORY-ERROR] 재고 추가 중 예외 발생:', error);
       Alert.alert('오류', '재고 추가 중 문제가 발생했습니다.');
-    } finally {
-      console.log('--- [INVENTORY] 재고 추가 완료 ---\n');
     }
   };
 
-  // 1. 카메라 디바이스 확인
-  if (device == null) {
-    return <View style={styles.container}><Text style={styles.message}>카메라를 찾을 수 없습니다.</Text></View>;
-  }
+  if (device == null) return <View style={styles.container}><Text style={styles.message}>카메라를 찾을 수 없습니다.</Text></View>;
+  if (!hasPermission) return <View style={styles.container}><Text style={styles.message}>카메라 권한이 필요합니다.</Text><Button onPress={requestPermission} title="권한 요청" /></View>;
 
-  // 2. 카메라 권한 확인
-  if (!hasPermission) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.message}>카메라 권한이 필요합니다.</Text>
-        <Button onPress={requestPermission} title="권한 요청" />
-      </View>
-    );
-  }
-
-  // 3. 모든 조건 충족 시 카메라 및 모달 렌더링
   return (
     <View style={styles.container}>
       <Camera
@@ -599,34 +286,24 @@ useEffect(() => {
         device={device}
         isActive={isFocused && !scannedData && !error && !showPhotoConfirm}
         codeScanner={scanMode === 'barcode' ? codeScanner : undefined}
-        photo={scanMode === 'receipt'} // 👈 영수증 모드일 때 사진 촬영 활성화
-        key={`camera-${scanMode}`} // 🔑 키를 추가하여 모드 변경 시 재렌더링 강제
+        photo={scanMode === 'receipt' ? true : undefined} // Explicitly undefined
+        key={`camera-${scanMode}`}
       />
       
       {isLoading && (
         <View style={styles.loadingContainer}>
-          <LottieView
-            source={require('../../assets/images/loading/Cooking - Frying Pan.json')}
-            autoPlay
-            loop
-            style={styles.lottieAnimation}
-          />
+          <LottieView source={require('../../assets/images/loading/Cooking - Frying Pan.json')} autoPlay loop style={styles.lottieAnimation} />
         </View>
       )}
       
-      {/* 모드 전환 버튼 */}
       <ModeToggle scanMode={scanMode} onModeChange={handleModeChange} />
       
-      {/* 영수증 모드일 때 셔터 버튼 */}
       {scanMode === 'receipt' && (
         <View style={styles.shutterButtonContainer}>
-          <TouchableOpacity style={styles.shutterButton} onPress={takePhoto}>
-            <Text style={styles.shutterButtonText}>사진 촬영</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={styles.shutterButton} onPress={takePhoto} />
         </View>
       )}
       
-      {/* 바코드 스캔 결과 모달 */}
       <Modal transparent={true} visible={!!scannedData || !!error} animationType="slide" onRequestClose={handleCloseModal}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -634,173 +311,87 @@ useEffect(() => {
               <>
                 <Text style={styles.modalTitle}>상품 정보</Text>
                 <Text style={styles.modalText}>{scannedData.name}</Text>
-
                 <Text style={styles.modalLabel}>카테고리 수정</Text>
-                <View style={styles.categorySelector}>
-                  <FlatList
-                    data={categoryList}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={({ item: cat }) => (
-                      <TouchableOpacity
-                        style={[
-                          styles.categoryItem,
-                          (selectedCategoryId || scannedData.category_id) === cat.id && styles.selectedCategory
-                        ]}
-                        onPress={() => setSelectedCategoryId(cat.id)}
-                      >
-                        <Text style={styles.categoryIcon}>{cat.icon}</Text>
-                        <Text style={styles.categoryText}>{cat.name}</Text>
-                      </TouchableOpacity>
-                    )}
-                  />
-                </View>
-
-                <Text style={styles.modalLabel}>유통기한</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="YYYY-MM-DD 형식으로 입력"
-                  value={expiryDate}
-                  onChangeText={setExpiryDate}
+                <FlatList
+                  data={categoryList}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyExtractor={(item) => item.id.toString()}
+                  renderItem={({ item: cat }) => (
+                    <TouchableOpacity
+                      style={[(selectedCategoryId || scannedData.category_id) === cat.id ? styles.selectedCategory : styles.categoryItem]}
+                      onPress={() => setSelectedCategoryId(cat.id)}
+                    >
+                      <Text style={styles.categoryIcon}>{cat.icon}</Text>
+                      <Text style={styles.categoryText}>{cat.name}</Text>
+                    </TouchableOpacity>
+                  )}
                 />
-
-                {/* 빠른 유통기한 선택 버튼들 */}
+                <Text style={styles.modalLabel}>유통기한</Text>
+                <TextInput style={styles.input} placeholder="YYYY-MM-DD" value={expiryDate} onChangeText={setExpiryDate} />
                 <View style={styles.expiryButtonsContainer}>
-                  <TouchableOpacity
-                    style={styles.expiryButton}
-                    onPress={() => {
-                      const date = new Date();
-                      date.setDate(date.getDate() + 7);
-                      setExpiryDate(date.toISOString().split('T')[0]);
-                    }}
-                  >
-                    <Text style={styles.expiryButtonText}>1주</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.expiryButton}
-                    onPress={() => {
-                      const date = new Date();
-                      date.setDate(date.getDate() + 14);
-                      setExpiryDate(date.toISOString().split('T')[0]);
-                    }}
-                  >
-                    <Text style={styles.expiryButtonText}>2주</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.expiryButton}
-                    onPress={() => {
-                      const date = new Date();
-                      date.setDate(date.getDate() + 30);
-                      setExpiryDate(date.toISOString().split('T')[0]);
-                    }}
-                  >
-                    <Text style={styles.expiryButtonText}>1개월</Text>
-                  </TouchableOpacity>
+                  {/* Expiry buttons */}
                 </View>
-
-                <View style={styles.buttonContainer}>
-                  <Button title="재고에 추가" onPress={handleAddToInventory} />
-                </View>
+                <Button title="재고에 추가" onPress={handleAddToInventory} />
               </>
             )}
             {error && (
               <>
                 <Text style={styles.modalTitle}>오류</Text>
                 <Text style={styles.modalText}>{error}</Text>
-                {error.includes('해당 바코드의 상품 정보를 찾을 수 없습니다') && (
-                  <>
-                    <Text style={styles.modalSubText}>등록된 상품 정보가 없습니다. 직접 입력하시겠습니까?</Text>
-                    <View style={styles.errorButtonContainer}>
-                      <Button title="직접 입력" onPress={handleShowManualEntry} />
-                      <Button title="취소" onPress={handleCloseModal} />
-                    </View>
-                  </>
+                {error.includes('상품 정보를 찾을 수 없습니다') && (
+                  <View style={styles.errorButtonContainer}>
+                    <Button title="직접 입력" onPress={handleShowManualEntry} />
+                    <Button title="취소" onPress={handleCloseModal} />
+                  </View>
                 )}
               </>
             )}
-            {!error && (
-              <View style={styles.buttonContainer}>
-                <Button title="닫기" onPress={handleCloseModal} />
-              </View>
-            )}
+            {!error && <Button title="닫기" onPress={handleCloseModal} />}
           </View>
         </View>
       </Modal>
 
-      {/* 사진 확인 모달 */}
-      <PhotoConfirmModal
-        visible={showPhotoConfirm}
-        imageUri={capturedImage}
-        onRetake={handleRetakePhoto}
-        onUsePhoto={handleUsePhoto}
-      />
+      <PhotoConfirmModal visible={showPhotoConfirm} imageUri={capturedImage} onRetake={handleRetakePhoto} onUsePhoto={handleUsePhoto} />
 
-      {/* 직접 입력 모달 */}
       <Modal visible={showManualEntry} animationType="slide" onRequestClose={() => setShowManualEntry(false)}>
-        <View style={styles.manualEntryContainer}>
-          <Text style={styles.manualEntryTitle}>상품 정보 직접 입력</Text>
-          
-          <Text style={styles.manualEntryLabel}>바코드</Text>
-          <Text style={styles.manualEntryBarcode}>{scannedBarcode}</Text>
-          
-          <Text style={styles.manualEntryLabel}>상품 이름</Text>
-          <TextInput
-            style={styles.manualInput}
-            placeholder="상품 이름을 입력하세요"
-            value={manualName}
-            onChangeText={setManualName}
-          />
-          
-          <Text style={styles.manualEntryLabel}>카테고리</Text>
-          <View style={styles.categorySelector}>
-            <FlatList
-              data={categoryList}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item: cat }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.categoryItem,
-                    manualCategoryId === cat.id && styles.selectedCategory
-                  ]}
-                  onPress={() => {
-                    setManualCategoryId(cat.id);
-                    setManualCategory(cat.name); // Update text to show category name
-                  }}
-                >
-                  <Text style={styles.categoryIcon}>{cat.icon}</Text>
-                  <Text style={styles.categoryText}>{cat.name}</Text>
+        <SafeAreaView style={styles.manualEntrySafeArea}>
+          <ScrollView style={styles.manualEntryScrollView}>
+            <View style={styles.manualEntryContainer}>
+              <Text style={styles.manualEntryTitle}>상품 정보 직접 입력</Text>
+              <Text style={styles.manualEntryLabel}>바코드</Text>
+              <Text style={styles.manualEntryBarcode}>{scannedBarcode}</Text>
+              <Text style={styles.manualEntryLabel}>상품 이름</Text>
+              <TextInput style={styles.manualInput} placeholder="상품 이름을 입력하세요" value={manualName} onChangeText={setManualName} />
+              <Text style={styles.manualEntryLabel}>카테고리</Text>
+              <FlatList
+                data={categoryList}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item: cat }) => (
+                  <TouchableOpacity
+                    style={[manualCategoryId === cat.id ? styles.selectedCategory : styles.categoryItem]}
+                    onPress={() => setManualCategoryId(cat.id)}
+                  >
+                    <Text style={styles.categoryIcon}>{cat.icon}</Text>
+                    <Text style={styles.categoryText}>{cat.name}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+              <Text style={styles.manualEntryLabel}>유통기한</Text>
+              <TextInput style={styles.manualInput} placeholder="YYYY-MM-DD" value={expiryDate} onChangeText={setExpiryDate} />
+              <View style={styles.manualEntryButtons}>
+                <TouchableOpacity style={[styles.manualButton, styles.manualCancelButton]} onPress={() => setShowManualEntry(false)}>
+                  <Text style={styles.manualButtonText}>취소</Text>
                 </TouchableOpacity>
-              )}
-            />
-          </View>
-          
-          <Text style={styles.manualEntryLabel}>유통기한</Text>
-          <TextInput
-            style={styles.manualInput}
-            placeholder="유통기한 입력 (YYYY-MM-DD)"
-            value={expiryDate}
-            onChangeText={setExpiryDate}
-          />
-          
-          <View style={styles.manualEntryButtons}>
-            <TouchableOpacity 
-              style={[styles.manualButton, styles.manualCancelButton]} 
-              onPress={() => setShowManualEntry(false)}
-            >
-              <Text style={styles.manualButtonText}>취소</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.manualButton, styles.manualSubmitButton]} 
-              onPress={handleManualSubmission}
-            >
-              <Text style={styles.manualButtonText}>재고에 추가</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+                <TouchableOpacity style={[styles.manualButton, styles.manualSubmitButton]} onPress={handleManualSubmission}>
+                  <Text style={styles.manualButtonText}>재고에 추가</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
       </Modal>
     </View>
   );
@@ -812,182 +403,46 @@ const styles = StyleSheet.create({
   modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
   modalContent: { backgroundColor: 'white', padding: 22, borderRadius: 10, width: '80%', alignItems: 'center' },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 12 },
-  modalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 15,
-    marginBottom: 8,
-    alignSelf: 'flex-start',
-    paddingLeft: 10,
-  },
+  modalLabel: { fontSize: 16, fontWeight: '600', color: '#333', marginTop: 15, marginBottom: 8, alignSelf: 'flex-start' },
   modalText: { fontSize: 16, marginBottom: 8 },
-  input: {
-    width: '100%',
-    height: 40,
-    borderColor: 'gray',
-    borderWidth: 1,
-    borderRadius: 5,
-    marginTop: 10,
-    paddingHorizontal: 10,
-  },
-  expiryButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginTop: 10,
-    marginBottom: 15,
-  },
-  expiryButton: {
-    backgroundColor: '#E3F2FD',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#BBDEFB',
-  },
-  expiryButtonText: {
-    color: '#1976D2',
-    fontSize: 12,
-    fontWeight: '600',
-  },
+  input: { width: '100%', height: 40, borderColor: 'gray', borderWidth: 1, borderRadius: 5, marginTop: 10, paddingHorizontal: 10 },
+  expiryButtonsContainer: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginTop: 10, marginBottom: 15 },
+  expiryButton: { backgroundColor: '#E3F2FD', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#BBDEFB' },
+  expiryButtonText: { color: '#1976D2', fontSize: 12, fontWeight: '600' },
   buttonContainer: { marginTop: 15, width: '100%' },
-  
-  // 셔터 버튼 스타일
-  shutterButtonContainer: {
-    position: 'absolute',
-    bottom: 40,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  shutterButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: 'white',
-  },
-  shutterButtonText: {
-    fontSize: 12,
-    color: '#333',
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
-  
-  // 직접 입력 화면 스타일
-  manualEntryContainer: {
+  shutterButtonContainer: { position: 'absolute', bottom: 40, alignSelf: 'center' },
+  shutterButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: 'white' },
+  manualEntryScrollView: {
     flex: 1,
-    backgroundColor: '#fff',
-    padding: 20,
   },
-  manualEntryTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
+  manualEntryContainer: {
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 40, // Ensure space for buttons
+    backgroundColor: 'white'
   },
-  manualEntryLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#333',
-  },
-  manualEntryBarcode: {
-    fontSize: 18,
-    color: '#007AFF',
-    marginBottom: 20,
-    padding: 10,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    textAlign: 'center',
-  },
-  manualInput: {
-    width: '100%',
-    height: 50,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 20,
-    paddingHorizontal: 15,
-    fontSize: 16,
-  },
-  manualEntryButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-  },
-  manualButton: {
-    flex: 0.45,
-    paddingVertical: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  manualCancelButton: {
-    backgroundColor: '#666',
-  },
-  manualSubmitButton: {
-    backgroundColor: '#007AFF',
-  },
-  manualButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  modalSubText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 15,
-  },
-  errorButtonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-  },
-  loadingContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-  },
+  manualEntryTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
+  manualEntryLabel: { fontSize: 16, fontWeight: '600', marginBottom: 8 },
+  manualEntryBarcode: { fontSize: 18, color: '#007AFF', marginBottom: 20, padding: 10, backgroundColor: '#f0f0f0', borderRadius: 8, textAlign: 'center' },
+  manualInput: { width: '100%', height: 50, borderColor: '#ddd', borderWidth: 1, borderRadius: 8, marginBottom: 20, paddingHorizontal: 15, fontSize: 16 },
+  manualEntryButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
+  manualButton: { flex: 0.48, paddingVertical: 15, borderRadius: 8, alignItems: 'center' },
+  manualCancelButton: { backgroundColor: '#6c757d' },
+  manualSubmitButton: { backgroundColor: '#007bff' },
+  manualButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  errorButtonContainer: { flexDirection: 'row', justifyContent: 'space-around', width: '100%' },
+  loadingContainer: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
   lottieAnimation: {
     width: 200,
     height: 200,
   },
-
-  // Category selector styles
-  categorySelector: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  manualEntrySafeArea: {
+    flex: 1,
+    backgroundColor: 'white',
   },
-  categoryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    margin: 5,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  selectedCategory: {
-    backgroundColor: '#E3F2FD',
-    borderColor: '#2196F3',
-  },
-  categoryIcon: {
-    fontSize: 18,
-    marginRight: 6,
-  },
-  categoryText: {
-    fontSize: 12,
-  },
+  categorySelector: {},
+  categoryItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, margin: 5, borderRadius: 20, backgroundColor: '#F5F5F5', borderWidth: 1, borderColor: '#E0E0E0' },
+  selectedCategory: { backgroundColor: '#E3F2FD', borderColor: '#2196F3' },
+  categoryIcon: { fontSize: 18, marginRight: 6 },
+  categoryText: { fontSize: 12 },
 });
