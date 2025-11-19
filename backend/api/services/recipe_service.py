@@ -244,7 +244,7 @@ def generate_recipe_with_gemini(ingredients: List[str]) -> Optional[Dict[str, An
         }}
         """
 
-        response = model.generate_content(prompt)
+        response = model.generate_content(prompt, request_options={"timeout": 60})
         response_text = response.text.strip()
 
         # 코드 블록 마크다운 제거

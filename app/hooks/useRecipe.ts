@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { fetchRecommendRecipes, fetchRecipeDetail, postCompleteRecipe, Recipe } from '../lib/api/recipe';
+import { fetchRecommendRecipes, fetchGeneratedRecipe, fetchRecipeDetail, postCompleteRecipe, Recipe } from '../lib/api/recipe';
 import { loadActiveInventory } from '../lib/supabase';
 
 export const useRecipes = (userId?: string) => {

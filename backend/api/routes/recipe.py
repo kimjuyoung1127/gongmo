@@ -78,18 +78,25 @@ def generate_recipe():
     """
     Gemini API를 사용하여 재료 기반으로 레시피를 생성합니다.
     """
+    print("[AI 레시피] 생성 요청 시작")
     try:
         ingredients_param = request.args.get('ingredients', '')
         if not ingredients_param:
+            print("[AI 레시피] 오류: 재료 파라미터가 없습니다.")
             return jsonify({'error': '재료 목록이 필요합니다.'}), 400
 
         ingredients = [ing.strip() for ing in ingredients_param.split(',')]
+        print(f"[AI 레시피] 입력된 재료: {ingredients}")
         
+        print("[AI 레시피] Gemini API 호출 시작")
         recipe = generate_recipe_with_gemini(ingredients)
+        print("[AI 레시피] Gemini API 호출 완료")
 
         if recipe:
+            print(f"[AI 레시피] 생성 성공: {recipe.get('RCP_NM', '이름 없음')}")
             return jsonify({'recipes': [recipe], 'count': 1, 'is_generated': True}), 200
         else:
+            print("[AI 레시피] 오류: 생성된 레시피가 없습니다.")
             return jsonify({'error': 'AI 레시피 생성에 실패했습니다.'}), 500
 
     except Exception as e:
