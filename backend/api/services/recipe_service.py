@@ -42,7 +42,7 @@ def get_recipe_detail(menu_name: str, supabase: Client) -> Optional[Dict[str, An
         gemini_api_key = os.environ.get('GEMINI_API_KEY')
         if gemini_api_key:
             genai.configure(api_key=gemini_api_key)
-            model = genai.GenerativeModel('gemini-pro')
+            model = genai.GenerativeModel('gemini-2.5-flash')
 
             # 식약처 데이터를 JSON 형식으로 변환 요청
             prompt = f"""
