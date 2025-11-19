@@ -23,6 +23,9 @@ if supabase:
     # expiry_logic.py에도 Supabase 클라이언트 전달
     from .utils.expiry_logic import set_supabase_client_for_categories
     set_supabase_client_for_categories(supabase)
+    # recipe.py에도 Supabase 클라이언트 전달
+    from .routes.recipe import set_supabase_client as set_recipe_supabase_client
+    set_recipe_supabase_client(supabase)
 
 # Supabase 클라이언트를 다른 모듈에서도 사용할 수 있도록 설정
 import sys

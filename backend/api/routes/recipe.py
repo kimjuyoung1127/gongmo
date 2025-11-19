@@ -175,6 +175,11 @@ def complete_recipe():
         user_id = data.get('user_id')
         ingredients_used = data.get('ingredients_used', [])
         
+        # Supabase 클라이언트 확인
+        if not supabase_client:
+            print("[레시피] 오류: Supabase 클라이언트가 초기화되지 않았습니다")
+            return jsonify({'error': '데이터베이스 연결이 필요합니다.'}), 500
+
         # AI 생성 레시피의 경우 ID가 없을 수 있음
         # 이 경우 menu_name과 recipe_data를 받아와서 먼저 저장 후 ID 생성
         if not recipe_id:
@@ -196,11 +201,6 @@ def complete_recipe():
 
         if not recipe_id or not user_id:
             return jsonify({'error': '레시피 ID와 사용자 ID가 필요합니다.'}), 400
-
-        # Supabase 클라이언트 확인
-        if not supabase_client:
-            print("[레시피] 오류: Supabase 클라이언트가 초기화되지 않았습니다")
-            return jsonify({'error': '데이터베이스 연결이 필요합니다.'}), 500
 
         # 사용자 재고에서 해당 재료 차감 로직 구현
         # 이 부분은 추후 구체화
