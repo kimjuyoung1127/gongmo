@@ -33,8 +33,8 @@ export const useRecipes = (userId?: string) => {
       // 사용자 재고 가져오기
       const inventory = await loadActiveInventory(userId);
 
-      // 재고 변경 확인
-      const currentIngredients = inventory.map(item => item.name);
+      // 재고 변경 확인 (정렬 후 비교하여 순서에 무관하게)
+      const currentIngredients = inventory.map(item => item.name).sort();
       const ingredientsChanged = JSON.stringify(prevInventoryRef.current) !== JSON.stringify(currentIngredients);
 
       // 재고가 변경되지 않았고 캐시가 있으면 재사용
@@ -44,6 +44,7 @@ export const useRecipes = (userId?: string) => {
         return;
       }
 
+      // 정렬된 재료 목록을 ref에 저장
       prevInventoryRef.current = currentIngredients;
 
       // 재고가 없으면 API 호출하지 않음
@@ -56,7 +57,13 @@ export const useRecipes = (userId?: string) => {
       console.log('레시피 API 호출 - 재고 변경 감지');
 
       // 재료 기반 레시피 추천 가져오기
-      const recommendedRecipes = await fetchRecommendRecipes(currentIngredients);
+      let recommendedRecipes = await fetchRecommendRecipes(currentIngredients);
+
+      // 결과가 없으면 AI에게 레시피 추천 요청 (Fallback)
+      if (recommendedRecipes.length === 0) {
+        console.log('추천 레시피 없음, AI에게 레시피 생성 요청...');
+        recommendedRecipes = await fetchGeneratedRecipe(currentIngredients);
+      }
 
       setRecipes(recommendedRecipes);
       lastFetchTimeRef.current = now;

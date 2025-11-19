@@ -9,12 +9,13 @@ interface RecipeCardProps {
     match_percentage: number;
     missing_ingredients: string[];
     image_url?: string;
+    is_generated?: boolean;
   };
   onPress: () => void;
 }
 
 const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, onPress }) => {
-  const { menu_name, match_percentage, missing_ingredients, recipe_data } = recipe;
+  const { menu_name, match_percentage, missing_ingredients, recipe_data, is_generated } = recipe;
   
   // 조리 시간 정보 추출
   const cooking_time = recipe_data?.cooking_time || '정보 없음';
@@ -26,6 +27,11 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, onPress }) => {
 
   return (
     <TouchableOpacity style={styles.container} onPress={onPress}>
+      {is_generated && (
+        <View style={styles.aiBadge}>
+          <Text style={styles.aiBadgeText}>AI</Text>
+        </View>
+      )}
       {/* 레시피 이미지 */}
       {recipe.image_url ? (
         <Image source={{ uri: recipe.image_url }} style={styles.image} />
@@ -85,6 +91,21 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     overflow: 'hidden',
     width: 280,
+  },
+  aiBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#6A1B9A',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    zIndex: 1,
+  },
+  aiBadgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   image: {
     width: '100%',

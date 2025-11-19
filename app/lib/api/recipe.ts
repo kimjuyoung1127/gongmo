@@ -80,6 +80,33 @@ export const fetchRecommendRecipes = async (ingredients: string[]): Promise<Reci
   }
 };
 
+// AI 생성 레시피 가져오기 (Fallback)
+export const fetchGeneratedRecipe = async (ingredients: string[]): Promise<Recipe[]> => {
+  const limitedIngredients = ingredients.slice(0, 10);
+  if (limitedIngredients.length === 0) {
+    return [];
+  }
+
+  try {
+    console.log('[AI 레시피] Gemini API로 레시피 생성 시도...');
+    const response = await fetch(
+      `${process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:5000'}/recipe/generate?ingredients=${encodeURIComponent(limitedIngredients.join(','))}`
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData?.error || `HTTP error! status: ${response.status}`;
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    return data.recipes || [];
+  } catch (error: any) {
+    console.error('AI 레시피 생성 오류:', error.message || error);
+    return []; // Fallback to empty array on error
+  }
+};
+
 // 레시피 상세 정보 가져오기
 export const fetchRecipeDetail = async (menuName: string): Promise<RecipeDetail> => {
   try {

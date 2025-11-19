@@ -3,7 +3,7 @@ from supabase import Client
 import os
 from typing import List, Dict, Any
 import requests
-from ..services.recipe_service import get_recipe_detail, search_recipes_by_ingredients
+from ..services.recipe_service import get_recipe_detail, search_recipes_by_ingredients, generate_recipe_with_gemini
 from ..utils.food_api import get_recipes_from_food_safety_korea, get_recipes_from_themealdb
 from dotenv import load_dotenv
 
@@ -45,6 +45,13 @@ def search_recipes():
         # 재료 기반 레시피 검색
         recipes = search_recipes_by_ingredients(ingredients, supabase_client)
 
+        # Convert datetime objects to strings for JSON serialization
+        for recipe in recipes:
+            if 'created_at' in recipe and hasattr(recipe['created_at'], 'isoformat'):
+                recipe['created_at'] = recipe['created_at'].isoformat()
+            if 'updated_at' in recipe and hasattr(recipe['updated_at'], 'isoformat'):
+                recipe['updated_at'] = recipe['updated_at'].isoformat()
+
         # 사용자에게 전달할 응답 개선
         response_data = {
             'recipes': recipes,
@@ -64,6 +71,30 @@ def search_recipes():
             'error': '레시피 검색 중 오류가 발생했습니다.',
             'message': '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
         }), 500
+
+
+@recipe_bp.route('/generate', methods=['GET'])
+def generate_recipe():
+    """
+    Gemini API를 사용하여 재료 기반으로 레시피를 생성합니다.
+    """
+    try:
+        ingredients_param = request.args.get('ingredients', '')
+        if not ingredients_param:
+            return jsonify({'error': '재료 목록이 필요합니다.'}), 400
+
+        ingredients = [ing.strip() for ing in ingredients_param.split(',')]
+        
+        recipe = generate_recipe_with_gemini(ingredients)
+
+        if recipe:
+            return jsonify({'recipes': [recipe], 'count': 1, 'is_generated': True}), 200
+        else:
+            return jsonify({'error': 'AI 레시피 생성에 실패했습니다.'}), 500
+
+    except Exception as e:
+        print(f"[AI 레시피 생성 오류] {str(e)}")
+        return jsonify({'error': 'AI 레시피 생성 중 오류가 발생했습니다.'}), 500
 
 
 @recipe_bp.route('/detail/<menu_name>', methods=['GET'])

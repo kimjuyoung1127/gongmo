@@ -210,3 +210,58 @@ def search_recipes_by_ingredients(ingredients: List[str], supabase: Client) -> L
     except Exception as e:
         print(f"[레시피 검색 오류] {str(e)}")
         return []
+
+def generate_recipe_with_gemini(ingredients: List[str]) -> Optional[Dict[str, Any]]:
+    """
+    Gemini API를 사용하여 재료 기반으로 레시피를 생성합니다.
+    """
+    gemini_api_key = os.environ.get('GEMINI_API_KEY')
+    if not gemini_api_key:
+        print("[레시피 생성] ⚠️ GEMINI_API_KEY가 설정되지 않았습니다.")
+        return None
+
+    try:
+        genai.configure(api_key=gemini_api_key)
+        model = genai.GenerativeModel('gemini-pro')
+
+        ingredients_str = ", ".join(ingredients)
+        prompt = f"""
+        다음 재료를 사용하여 만들 수 있는 창의적인 레시피를 한 개만 추천해줘: {ingredients_str}.
+        결과는 반드시 아래의 JSON 형식에 맞춰서 반환해줘. 다른 설명은 절대 추가하지 마.
+
+        {{
+            "menu_name": "레시피 이름",
+            "description": "요리에 대한 간단하고 흥미로운 설명",
+            "cooking_time": "조리 시간 (예: 30분)",
+            "difficulty": "난이도 (예: 초급, 중급, 고급)",
+            "ingredients": [
+                {{"name": "재료명", "amount": "용량"}}
+            ],
+            "instructions": [
+                {{"step": 1, "description": "조리 순서 1번 설명"}}
+            ],
+            "tips": "요리 꿀팁 (선택 사항)"
+        }}
+        """
+
+        response = model.generate_content(prompt)
+        response_text = response.text.strip()
+
+        # 코드 블록 마크다운 제거
+        if response_text.startswith('```json'):
+            response_text = response_text[7:-3].strip()
+
+        recipe_json = json.loads(response_text)
+        
+        # API 응답 형식에 맞게 recipe_data 필드 추가
+        return {
+            "menu_name": recipe_json.get("menu_name", "AI 추천 레시피"),
+            "recipe_data": recipe_json,
+            "is_generated": True, # AI 생성 플래그
+            "match_percentage": 100, # AI 추천이므로 100% 매칭으로 간주
+            "missing_ingredients": []
+        }
+
+    except Exception as e:
+        print(f"[레시피 생성] Gemini API 처리 오류: {e}")
+        return None
