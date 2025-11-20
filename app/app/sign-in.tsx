@@ -79,83 +79,101 @@ export default function SignInScreen() {
     }
   }
 
-  async function signInWithOAuth(provider: 'google' | 'kakao') {
-    try {
-      console.log(`\n--- [OAuth] ${provider} 로그인 프로세스 시작 ---`);
-      console.log('[OAuth] 1. 사용할 리디렉션 URI:', redirectUri);
-
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: redirectUri, skipBrowserRedirect: true },
-      });
-
-      if (error || !data?.url) {
-        throw error ?? new Error('인증 URL을 받지 못했습니다.');
+    async function signInWithOAuth(provider: 'google' | 'kakao') {
+      try {
+        console.log(`\n--- [OAuth] ${provider} 로그인 프로세스 시작 ---`);
+        console.log('[OAuth] 1. 사용할 리디렉션 URI:', redirectUri);
+  
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: { redirectTo: redirectUri, skipBrowserRedirect: true },
+        });
+  
+        if (error || !data?.url) {
+          throw error ?? new Error('인증 URL을 받지 못했습니다.');
+        }
+        console.log('[OAuth] 2. 인증 URL 받기 성공. 브라우저 열기 시도.');
+        console.log('   - URL:', data.url);
+  
+        const res = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+        console.log('[OAuth] 3. WebBrowser 결과 수신:', res);
+  
+        if (res.type === 'success' && res.url) {
+          console.log('[OAuth] 4. 성공적인 리디렉션. 딥 링크를 통한 세션 설정 시도.');
+          console.log('   - 돌아온 URL:', res.url);
+          await createSessionFromUrl(res.url);
+        } else if (res.type === 'cancel') {
+          console.log('[OAuth] 사용자가 인증을 취소했습니다.');
+        } else {
+          throw new Error('OAuth 흐름이 취소되거나 실패했습니다.');
+        }
+      } catch (e: any) {
+        console.error('[OAuth] 최종 오류:', e?.message ?? e);
+        Alert.alert('로그인 실패', e?.message ?? '알 수 없는 오류가 발생했습니다.');
       }
-      console.log('[OAuth] 2. 인증 URL 받기 성공. 브라우저 열기 시도.');
-      console.log('   - URL:', data.url);
-
-      const res = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
-      console.log('[OAuth] 3. WebBrowser 결과 수신:', res);
-
-      if (res.type === 'success' && res.url) {
-        console.log('[OAuth] 4. 성공적인 리디렉션. 딥 링크를 통한 세션 설정 시도.');
-        console.log('   - 돌아온 URL:', res.url);
-        await createSessionFromUrl(res.url);
-      } else if (res.type === 'cancel') {
-        console.log('[OAuth] 사용자가 인증을 취소했습니다.');
-      } else {
-        throw new Error('OAuth 흐름이 취소되거나 실패했습니다.');
-      }
-    } catch (e: any) {
-      console.error('[OAuth] 최종 오류:', e?.message ?? e);
-      Alert.alert('로그인 실패', e?.message ?? '알 수 없는 오류가 발생했습니다.');
     }
+  
+    async function signInAsGuest() {
+      try {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: 'test@test.com',
+          password: '1234',
+        });
+        if (error) throw error;
+        router.replace('/(tabs)');
+      } catch (e: any) {
+        Alert.alert('게스트 로그인 실패', e?.message ?? '알 수 없는 오류가 발생했습니다.');
+      }
+    }
+  
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('../assets/images/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.appTitle}>냉장고 파먹기</Text>
+            <Text style={styles.appSubtitle}>당신의 식재료로 만드는 맞춤 레시피</Text>
+          </View>
+  
+          <View style={styles.loginOptions}>
+            <Text style={styles.loginTitle}>로그인하고 맞춤 레시피를 받아보세요</Text>
+  
+            <TouchableOpacity
+              style={[styles.socialButton, styles.googleButton]}
+              onPress={() => signInWithOAuth('google')}
+            >
+              <Image source={require('../assets/images/google-logo.png')} style={styles.socialLogo} />
+              <Text style={styles.socialButtonText}>Google로 계속하기</Text>
+            </TouchableOpacity>
+  
+            <TouchableOpacity
+              style={[styles.socialButton, styles.kakaoButton]}
+              onPress={() => Alert.alert('알림', '현재 개발 중인 기능입니다.')}
+            >
+              <Image source={require('../assets/images/kakao-logo.png')} style={styles.socialLogo} />
+              <Text style={styles.socialButtonText}>카카오톡으로 계속하기</Text>
+            </TouchableOpacity>
+  
+            <TouchableOpacity onPress={signInAsGuest} style={{ marginTop: 20 }}>
+              <Text style={{ fontSize: 14, color: '#888', textDecorationLine: 'underline' }}>
+                심사위원(Guest) 프리패스
+              </Text>
+            </TouchableOpacity>
+          </View>
+  
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              로그인 시 서비스 이용약관 및 개인정보처리방침에 동의하게 됩니다.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
   }
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <View style={styles.logoContainer}>
-          <Image
-            source={require('../assets/images/logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.appTitle}>냉장고 파먹기</Text>
-          <Text style={styles.appSubtitle}>당신의 식재료로 만드는 맞춤 레시피</Text>
-        </View>
-
-        <View style={styles.loginOptions}>
-          <Text style={styles.loginTitle}>로그인하고 맞춤 레시피를 받아보세요</Text>
-
-          <TouchableOpacity
-            style={[styles.socialButton, styles.googleButton]}
-            onPress={() => signInWithOAuth('google')}
-          >
-            <Image source={require('../assets/images/google-logo.png')} style={styles.socialLogo} />
-            <Text style={styles.socialButtonText}>Google로 계속하기</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.socialButton, styles.kakaoButton]}
-            onPress={() => signInWithOAuth('kakao')}
-          >
-            <Image source={require('../assets/images/kakao-logo.png')} style={styles.socialLogo} />
-            <Text style={styles.socialButtonText}>카카오톡으로 계속하기</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            로그인 시 서비스 이용약관 및 개인정보처리방침에 동의하게 됩니다.
-          </Text>
-        </View>
-      </View>
-    </SafeAreaView>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -59,11 +59,10 @@ export const useRecipes = (userId?: string) => {
       // 재료 기반 레시피 추천 가져오기
       let recommendedRecipes = await fetchRecommendRecipes(currentIngredients);
 
-      // 결과가 없으면 AI에게 레시피 추천 요청 (Fallback)
-      if (recommendedRecipes.length === 0) {
-        console.log('추천 레시피 없음, AI에게 레시피 생성 요청...');
-        recommendedRecipes = await fetchGeneratedRecipe(currentIngredients);
-      }
+      // 최신순 정렬 (created_at 기준 내림차순)
+      recommendedRecipes.sort((a, b) => {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
 
       setRecipes(recommendedRecipes);
       lastFetchTimeRef.current = now;
@@ -84,6 +83,40 @@ export const useRecipes = (userId?: string) => {
     loading,
     error,
     refetch: loadRecipes,
+    generateNewRecipe: async () => {
+      if (!userId) return;
+
+      try {
+        setLoading(true);
+        // 1. 최신 재고 가져오기
+        const inventory = await loadActiveInventory(userId);
+        const currentIngredients = inventory.map(item => item.name);
+
+        if (currentIngredients.length === 0) {
+          throw new Error('재고가 없어 레시피를 생성할 수 없습니다.');
+        }
+
+        console.log('사용자 요청으로 새 레시피 생성 시작...');
+
+        // 2. Gemini API 호출
+        const newRecipes = await fetchGeneratedRecipe(currentIngredients);
+
+        if (newRecipes.length === 0) {
+          throw new Error('새로운 레시피를 생성하지 못했습니다.');
+        }
+
+        // 3. 기존 레시피 목록의 최상단에 추가
+        setRecipes(prev => [...newRecipes, ...prev]);
+
+        return newRecipes;
+      } catch (err: any) {
+        console.error('레시피 생성 실패:', err);
+        setError(err.message || '레시피 생성 중 오류가 발생했습니다.');
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 };
 

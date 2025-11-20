@@ -1,27 +1,64 @@
-import React, { useEffect, useState } from 'react'
-import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native'
+import React, { useEffect, useState, useRef } from 'react'
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, FlatList, NativeSyntheticEvent, NativeScrollEvent } from 'react-native'
 import { useRouter } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import LottieView from 'lottie-react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
-// 화면 너비 가져오기
 const { width: screenWidth } = Dimensions.get('window')
 
-// 온보딩 첫 화면 - 앱의 주요 기능을 소개하고 사용자에게 시작 유도
+const ONBOARDING_STEPS = [
+  {
+    id: 'scan',
+    title: '영수증과 바코드로\n1초 만에 등록',
+    description: '번거로운 입력은 그만! 카메라로 찍기만 하면\nAI가 자동으로 식재료를 등록해줍니다.',
+    emoji: '📷',
+  },
+  {
+    id: 'expiry',
+    title: '유통기한 임박,\n놓치지 마세요',
+    description: '소중한 식재료가 버려지지 않도록,\n유통기한이 다가오면 미리 알려드립니다.',
+    emoji: '⏰',
+  },
+  {
+    id: 'recipe',
+    title: '냉장고 속 재료로\n만드는 요리',
+    description: '뭘 해먹을지 고민되시나요? 보유한 재료로\n만들 수 있는 최적의 레시피를 추천해드려요.',
+    emoji: '🍳',
+  },
+  {
+    id: 'start',
+    title: '지금 바로\n시작해보세요',
+    description: '더 스마트한 주방 생활,\nAI 식료품 관리자와 함께하세요.',
+    emoji: '🚀',
+  },
+];
+
 export default function OnboardingScreen() {
   const router = useRouter()
   const [showOnboardingContent, setShowOnboardingContent] = useState(false)
+  const [currentStep, setCurrentStep] = useState(0)
+  const flatListRef = useRef<FlatList>(null)
 
-  // Lottie 애니메이션 완료 후 온보딩 콘텐츠 표시
   const onAnimationComplete = () => {
     setTimeout(() => {
       setShowOnboardingContent(true)
-    }, 500) // 짧은 지연 후 콘텐츠 전환
+    }, 500)
+  }
+
+  const handleNext = () => {
+    if (currentStep < ONBOARDING_STEPS.length - 1) {
+      flatListRef.current?.scrollToIndex({
+        index: currentStep + 1,
+        animated: true,
+      })
+    } else {
+      handleStartPress()
+    }
   }
 
   const handleStartPress = async () => {
     try {
-      // 개발용 스킵 로직 - 실제 앱에서는 사용자가 온보딩을 완료하면 표시하지 않도록 설정
       await AsyncStorage.setItem('hasVisitedApp', 'true')
       router.replace('/onboarding/permissions')
     } catch (error) {
@@ -29,20 +66,29 @@ export default function OnboardingScreen() {
     }
   }
 
-  // 초기 로딩 시 애니메이션 먼저 표시
+  const handleSkip = () => {
+    flatListRef.current?.scrollToIndex({
+      index: ONBOARDING_STEPS.length - 1,
+      animated: true,
+    })
+  }
+
+  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const slideIndex = Math.round(event.nativeEvent.contentOffset.x / screenWidth)
+    setCurrentStep(slideIndex)
+  }
+
   useEffect(() => {
-    // 애니메이션이 없는 경우에도 콘텐츠 표시를 보장
     const timer = setTimeout(() => {
       if (!showOnboardingContent) {
         setShowOnboardingContent(true)
       }
-    }, 5000) // 5초 후에 강제로 콘텐츠 표시
+    }, 5000)
 
     return () => clearTimeout(timer)
   }, [])
 
   if (!showOnboardingContent) {
-    // Lottie 애니메이션 표시
     return (
       <View style={styles.container}>
         <View style={styles.animationContainer}>
@@ -59,70 +105,72 @@ export default function OnboardingScreen() {
     )
   }
 
-  // 기존 온보딩 콘텐츠
-  return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <Image source={require('../../assets/images/logo.png')} style={styles.logo} />
-        <View style={styles.textContainer}>
-          <Text style={styles.title}>
-            영수증을 찍기만 하면,{"\n"}식비 관리까지 한 번에! 💡
-          </Text>
-          <Text style={styles.subtitle}>
-            AI가 영수증과 바코드를 자동으로 스캔해서{"\n"}
-            냉장고 재고를 스마트하게 관리해드릴게요
-          </Text>
-        </View>
+  const renderItem = ({ item }: { item: typeof ONBOARDING_STEPS[0] }) => (
+    <View style={styles.slide}>
+      <View style={styles.imageContainer}>
+        <Text style={styles.emoji}>{item.emoji}</Text>
       </View>
-
-      <View style={styles.features}>
-        <View style={styles.featureItem}>
-          <Text style={styles.featureEmoji}>📷</Text>
-          <Text style={styles.featureText}>영수증 스캔</Text>
-        </View>
-        <View style={styles.featureItem}>
-          <Text style={styles.featureEmoji}>⚡</Text>
-          <Text style={styles.featureText}>자동 등록</Text>
-        </View>
-        <View style={styles.featureItem}>
-          <Text style={styles.featureEmoji}>🗓️</Text>
-          <Text style={styles.featureText}>유통기한 관리</Text>
-        </View>
-      </View>
-
-      {/* 데모 모드 설명 추가 */}
-      <View style={styles.demoHintContainer}>
-        <Text style={styles.demoHintTitle}>💡 데모 모드 활용 팁</Text>
-        <Text style={styles.demoHintText}>재고 목록에서 항목을 터치하면{'\n'}해당 기능에 대해 자세히 알아볼 수 있어요!</Text>
-      </View>
-
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.startButton}
-          onPress={handleStartPress}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.startButtonText}>시작하기</Text>
-        </TouchableOpacity>
-
-        {/* 개발용 스킵 버튼 - 실제 배포 시에는 제거해야 함 */}
-        <TouchableOpacity
-          style={styles.skipButton}
-          onPress={() => router.replace('/(tabs)')}
-        >
-          <Text style={styles.skipButtonText}>건너뛰기 (개발용)</Text>
-        </TouchableOpacity>
+      <View style={styles.textContainer}>
+        <Text style={styles.title}>{item.title}</Text>
+        <Text style={styles.description}>{item.description}</Text>
       </View>
     </View>
   )
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        {currentStep < ONBOARDING_STEPS.length - 1 && (
+          <TouchableOpacity onPress={handleSkip} style={styles.skipButton}>
+            <Text style={styles.skipText}>건너뛰기</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <FlatList
+        ref={flatListRef}
+        data={ONBOARDING_STEPS}
+        renderItem={renderItem}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        keyExtractor={(item) => item.id}
+        bounces={false}
+      />
+
+      <View style={styles.footer}>
+        <View style={styles.pagination}>
+          {ONBOARDING_STEPS.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.paginationDot,
+                currentStep === index && styles.paginationDotActive,
+              ]}
+            />
+          ))}
+        </View>
+
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleNext}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.buttonText}>
+            {currentStep === ONBOARDING_STEPS.length - 1 ? '시작하기' : '다음'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  )
 }
 
-// 스타일 정의
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 24,
   },
   animationContainer: {
     flex: 1,
@@ -134,94 +182,91 @@ const styles = StyleSheet.create({
     width: '130%',
     height: '130%',
   },
-  content: {
+  header: {
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    paddingHorizontal: 20,
+  },
+  skipButton: {
+    padding: 10,
+  },
+  skipText: {
+    color: '#999',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  slide: {
+    width: screenWidth,
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+  },
+  imageContainer: {
+    width: 120,
+    height: 120,
+    backgroundColor: '#F0F8FF',
+    borderRadius: 60,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 40,
   },
-  logo: {
-    width: 80,
-    height: 80,
-    marginBottom: 32,
+  emoji: {
+    fontSize: 60,
   },
   textContainer: {
     alignItems: 'center',
-    marginBottom: 48,
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#333333',
+    fontWeight: '800',
+    color: '#333',
     textAlign: 'center',
-    lineHeight: 36,
     marginBottom: 16,
+    lineHeight: 36,
   },
-  subtitle: {
+  description: {
     fontSize: 16,
-    color: '#666666',
+    color: '#666',
     textAlign: 'center',
     lineHeight: 24,
   },
-  features: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 48,
-  },
-  featureItem: {
-    alignItems: 'center',
-  },
-  featureEmoji: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  featureText: {
-    fontSize: 14,
-    color: '#666666',
-    fontWeight: '500',
-  },
   footer: {
-    paddingBottom: 32,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
-  startButton: {
+  pagination: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 30,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E0E0E0',
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
     backgroundColor: '#0064FF',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 16,
-    minHeight: 56,
+    width: 20,
   },
-  startButtonText: {
+  button: {
+    backgroundColor: '#0064FF',
+    height: 56,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#0064FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  buttonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
   },
-  skipButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  skipButtonText: {
-    color: '#999999',
-    fontSize: 14,
-  },
-  demoHintContainer: {
-    backgroundColor: '#F0F8FF',
-    padding: 16,
-    borderRadius: 12,
-    marginVertical: 20,
-    alignItems: 'center',
-    borderLeftWidth: 4,
-    borderLeftColor: '#0064FF',
-  },
-  demoHintTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  demoHintText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 20,
-  }
 })

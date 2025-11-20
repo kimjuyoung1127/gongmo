@@ -211,36 +211,56 @@ export default function InventoryScreen() {
           <Text style={styles.loadingText}>재고 정보를 불러오는 중...</Text>
         </View>
       )}
-      
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={{position: 'relative'}}>
-          <TouchableOpacity onPress={showInventoryDetail} activeOpacity={0.8}>
-            <InfoCard
-              emoji="💡"
-              title="오늘의 식품 현황"
-              subtitle={`냉장 ${currentStats.refrigerated}개 | 냉동 ${currentStats.frozen}개 | 실온 ${currentStats.room_temp}개`}
-            >
-              <View style={styles.quickStats}>
-                <TouchableOpacity style={styles.statItem} onPress={showInventoryDetail}>
-                  <Text style={styles.statNumber}>{inventory.length}</Text>
-                  <Text style={styles.statLabel}>총재고</Text>
-                </TouchableOpacity>
-                <View style={styles.statDivider} />
-                <TouchableOpacity style={styles.statItem} onPress={showAllExpiringDetail}>
-                  <Text style={[styles.statNumber, styles.warningText]}>{currentStats.expiring}</Text>
-                  <Text style={styles.statLabel}>임박</Text>
-                </TouchableOpacity>
-              </View>
-            </InfoCard>
-          </TouchableOpacity>
+
+      {/* Dashboard Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.headerTitle}>나의 냉장고</Text>
+            <Text style={styles.headerSubtitle}>오늘의 식재료 현황입니다</Text>
+          </View>
           {session && (
-            <TouchableOpacity style={styles.addButton} onPress={() => setAddModalVisible(true)}>
-              <Text style={styles.addButtonText}>+</Text>
+            <TouchableOpacity style={styles.headerAddButton} onPress={() => setAddModalVisible(true)}>
+              <Text style={styles.headerAddButtonText}>+</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Other InfoCards... */}
+        <View style={styles.headerStats}>
+          <TouchableOpacity style={styles.headerStatItem} onPress={showInventoryDetail}>
+            <Text style={styles.headerStatNumber}>{inventory.length}</Text>
+            <Text style={styles.headerStatLabel}>전체 재고</Text>
+          </TouchableOpacity>
+          <View style={styles.headerStatDivider} />
+          <TouchableOpacity style={styles.headerStatItem} onPress={showAllExpiringDetail}>
+            <Text style={[styles.headerStatNumber, styles.warningText]}>{currentStats.expiring}</Text>
+            <Text style={styles.headerStatLabel}>임박 항목</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+
+        {/* Storage Stats Grid */}
+        <View style={styles.gridContainer}>
+          <View style={styles.gridItem}>
+            <Text style={styles.gridIcon}>❄️</Text>
+            <Text style={styles.gridNumber}>{currentStats.refrigerated}</Text>
+            <Text style={styles.gridLabel}>냉장</Text>
+          </View>
+          <View style={styles.gridItem}>
+            <Text style={styles.gridIcon}>🧊</Text>
+            <Text style={styles.gridNumber}>{currentStats.frozen}</Text>
+            <Text style={styles.gridLabel}>냉동</Text>
+          </View>
+          <View style={styles.gridItem}>
+            <Text style={styles.gridIcon}>🏠</Text>
+            <Text style={styles.gridNumber}>{currentStats.room_temp}</Text>
+            <Text style={styles.gridLabel}>실온</Text>
+          </View>
+        </View>
+
+        {/* Expiring Items */}
         <InfoCard
           emoji="⚠️"
           title={`소비기한 임박 (${currentStats.expiring}개)`}
@@ -267,19 +287,39 @@ export default function InventoryScreen() {
           )}
         </InfoCard>
 
-        <InfoCard emoji="🍳" title="냉파 레시피 추천" subtitle="보유 재료로 만들 수 있는 요리">
-          {recipesLoading ? <Text>레시피를 불러오는 중...</Text> : recipesError ? <Text>레시피를 불러오지 못했어요</Text> : recommendedRecipes && recommendedRecipes.length > 0 ? (
-            recommendedRecipes.slice(0, 2).map((recipe, index) => (
-              <TouchableOpacity key={index} style={styles.recipeItem} onPress={() => router.push('/(tabs)/recipe')}>
-                <View style={styles.recipeContent}>
-                  <Text style={styles.recipeTitle}>{recipe.menu_name}</Text>
-                  <Text style={styles.recipeDesc}>{recipe.match_percentage}% 매칭 | {recipe.missing_ingredients?.length || 0}개 재료 부족</Text>
-                </View>
-                <Text style={styles.recipeArrow}>→</Text>
-              </TouchableOpacity>
-            ))
-          ) : <Text>추천 레시피가 없어요</Text>}
-        </InfoCard>
+        {/* Horizontal Recipe Recommendations */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>🍳 냉파 레시피 추천</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/recipe')}>
+              <Text style={styles.sectionMore}>더보기</Text>
+            </TouchableOpacity>
+          </View>
+
+          {recipesLoading ? (
+            <Text style={styles.loadingText}>레시피를 불러오는 중...</Text>
+          ) : recipesError ? (
+            <Text style={styles.errorText}>레시피를 불러오지 못했어요</Text>
+          ) : recommendedRecipes && recommendedRecipes.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recipeScroll}>
+              {recommendedRecipes.slice(0, 5).map((recipe, index) => (
+                <TouchableOpacity key={index} style={styles.recipeCard} onPress={() => router.push('/(tabs)/recipe')}>
+                  <View style={styles.recipeCardHeader}>
+                    <Text style={styles.recipeMatchBadge}>{recipe.match_percentage}% 매칭</Text>
+                  </View>
+                  <Text style={styles.recipeCardTitle} numberOfLines={2}>{recipe.menu_name}</Text>
+                  <Text style={styles.recipeCardSubtitle}>
+                    {recipe.missing_ingredients?.length || 0}개 재료 부족
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.emptyRecipeContainer}>
+              <Text style={styles.emptyRecipeText}>추천 레시피가 없어요</Text>
+            </View>
+          )}
+        </View>
 
         {!session && <LoginPromptBanner />}
         <View style={{ height: 100 }} />
@@ -288,7 +328,7 @@ export default function InventoryScreen() {
       <FixedScanButton />
 
       <DemoGuideModal visible={guideVisible} onClose={() => setGuideVisible(false)} itemType={guideType} onCTAPress={handleCTAPress} ctaText="저도 이렇게 관리할래요!" />
-      
+
       <InventoryDetailModal
         visible={inventoryDetailVisible}
         onClose={() => setInventoryDetailVisible(false)}
@@ -333,47 +373,212 @@ export default function InventoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
-  scrollView: { flex: 1, paddingHorizontal: 16 },
-  quickStats: { flexDirection: 'row', height: 40, borderRadius: 8, backgroundColor: '#F8F9FA', paddingHorizontal: 16 },
-  statItem: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  statNumber: { fontSize: 16, fontWeight: '700', color: '#333333' },
-  warningText: { color: '#FF6B00' },
-  statLabel: { fontSize: 12, color: '#666666', marginTop: 2 },
-  statDivider: { width: 1, backgroundColor: '#E1E8E8', marginHorizontal: 16 },
-  expiringItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  expiringItemContent: { flex: 1 },
-  expiringItemName: { fontSize: 14, fontWeight: '500', color: '#333333' },
-  expiringItemDate: { fontSize: 12, color: '#666666', marginTop: 2 },
-  dDayBadge: { backgroundColor: '#FF6B00', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
-  dDayText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
-  noExpiringContainer: { alignItems: 'center', paddingVertical: 16 },
-  noExpiringText: { fontSize: 14, color: '#666666' },
-  recipeItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  recipeContent: { flex: 1 },
-  recipeTitle: { fontSize: 14, fontWeight: '600', color: '#333333' },
-  recipeDesc: { fontSize: 12, color: '#666666', marginTop: 4 },
-  recipeArrow: { fontSize: 16, color: '#999999' },
-  expiringItemHighlighted: { backgroundColor: '#F0F8FF', borderRadius: 8, transform: [{ scale: 1.02 }] },
-  loadingContainer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5F5', zIndex: 1 },
-  lottieAnimation: { width: 150, height: 150 },
-  loadingText: { marginTop: 16, fontSize: 16, color: '#666', fontWeight: '500' },
-  addButton: {
-    position: 'absolute',
-    top: 24,
-    right: 10,
-    backgroundColor: '#007AFF',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  container: { flex: 1, backgroundColor: '#F5F7FA' },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 20 },
+
+  // Header Styles
+  header: {
+    backgroundColor: '#0064FF',
+    paddingTop: 20,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    marginBottom: 16,
+    shadowColor: '#0064FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  headerAddButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1,
   },
-  addButtonText: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
+  headerAddButtonText: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '600',
+    marginTop: -2,
+  },
+  headerStats: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 16,
+    padding: 16,
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  headerStatItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerStatNumber: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  headerStatLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '500',
+  },
+  headerStatDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  warningText: {
+    color: '#FFD700', // Gold color for warning in dark background
+  },
+
+  // Grid Styles
+  gridContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  gridItem: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    width: '31%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  gridIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  gridNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 2,
+  },
+  gridLabel: {
+    fontSize: 12,
+    color: '#666',
+  },
+
+  // Recipe Section Styles
+  sectionContainer: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+  },
+  sectionMore: {
+    fontSize: 14,
+    color: '#0064FF',
+    fontWeight: '600',
+  },
+  recipeScroll: {
+    paddingRight: 16,
+  },
+  recipeCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    width: 160,
+    marginRight: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    height: 140,
+    justifyContent: 'space-between',
+  },
+  recipeCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    marginBottom: 8,
+  },
+  recipeMatchBadge: {
+    backgroundColor: '#E8F4FD',
+    color: '#0064FF',
+    fontSize: 10,
+    fontWeight: '700',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  recipeCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 4,
     lineHeight: 22,
   },
+  recipeCardSubtitle: {
+    fontSize: 12,
+    color: '#888',
+  },
+  emptyRecipeContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyRecipeText: {
+    color: '#999',
+    fontSize: 14,
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 14,
+  },
+
+  // Existing Styles (retained/tweaked)
+  expiringItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  expiringItemContent: { flex: 1 },
+  expiringItemName: { fontSize: 15, fontWeight: '600', color: '#333333' },
+  expiringItemDate: { fontSize: 13, color: '#666666', marginTop: 4 },
+  dDayBadge: { backgroundColor: '#FF6B00', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+  dDayText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  noExpiringContainer: { alignItems: 'center', paddingVertical: 16 },
+  noExpiringText: { fontSize: 14, color: '#666666' },
+  expiringItemHighlighted: { backgroundColor: '#F0F8FF', borderRadius: 8, transform: [{ scale: 1.02 }] },
+  loadingContainer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5F5', zIndex: 10 },
+  lottieAnimation: { width: 150, height: 150 },
+  loadingText: { marginTop: 16, fontSize: 16, color: '#666', fontWeight: '500' },
 })

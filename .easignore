@@ -1,0 +1,35 @@
+# .easignore - 프로젝트 루트용
+
+# 빌드에 불필요한 최상위 폴더 제외
+.idea/
+.venv/
+backend/
+docs/
+supabase/
+
+# 1. 의존성 및 버전 관리 (용량 주범)
+app/node_modules/
+.git/
+app/.expo/
+
+# 2. 안드로이드 빌드 파일 (전부 무시)
+app/android/.gradle/
+app/android/build/
+app/android/app/build/
+
+# 3. iOS 빌드 파일 (전부 무시)
+app/ios/.symlinks/
+app/ios/Pods/
+app/ios/build/
+
+# 4. 결과물 파일
+*.apk
+*.aab
+*.ipa
+
+# 5. 환경변수 및 키
+.env
+.env*
+*.keystore
+*.jks
+*.pem

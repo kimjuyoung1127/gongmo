@@ -1,4 +1,4 @@
-import React, { useState, useRef,useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Platform } from 'react-native';
 import { View, Text, StyleSheet, Button, Modal, ActivityIndicator, Vibration, TextInput, Alert, TouchableOpacity, Pressable, Image, ImageBackground, FlatList, SafeAreaView, ScrollView } from 'react-native';
 import LottieView from 'lottie-react-native';
@@ -11,7 +11,8 @@ import { supabase } from '../../lib/supabase'; // Supabase 클라이언트 임�
 import { ModeToggle } from '../../components/scan/ModeToggle';
 import { PhotoConfirmModal } from '../../components/scan/PhotoConfirmModal';
 import { ScannedProductData, BACKEND_URL } from '../../components/scan/ScanUtils';
-import { getAllCategories, getCategoryInfo, Category } from '../../lib/categories'; 
+import { getAllCategories, getCategoryInfo, Category } from '../../lib/categories';
+import { ExpiryDateInput } from '../../components/ExpiryDateInput';
 
 export default function ScanScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -21,14 +22,14 @@ export default function ScanScreen() {
 
   // Camera ref
   const camera = useRef<Camera>(null);
-  
+
   // 스캔 모드 상태 ('barcode' | 'receipt')
   const [scanMode, setScanMode] = useState<'barcode' | 'receipt'>('barcode');
-  
+
   // 영수증 촬영 관련 상태
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [showPhotoConfirm, setShowPhotoConfirm] = useState(false);
-  
+
   // 바코드 직접 입력 상태
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualName, setManualName] = useState('');
@@ -69,7 +70,7 @@ export default function ScanScreen() {
     };
     requestAndFetch();
   }, [hasPermission, isFocused]);
-  
+
   // 카테고리별 기본 유통기한 (일수 기준) - 이 함수는 DB와 연동되지 않아 잠재적 버그가 있음
   const getDefaultExpiryDays = (categoryId: number): number => {
     const category = categoryList.find(c => c.id === categoryId);
@@ -131,7 +132,7 @@ export default function ScanScreen() {
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       if (data.error) throw new Error(data.error);
-      
+
       Alert.alert('성공', `${data.processed_count || 0}개 품목이 재고에 추가되었습니다.`, [
         { text: '확인', onPress: () => navigation.navigate('index' as never) }
       ]);
@@ -170,7 +171,7 @@ export default function ScanScreen() {
     setScannedBarcode(null);
     setScanMode(newMode);
   };
-  
+
   // --- 직접 입력 핸들러 ---
   const handleShowManualEntry = () => {
     setShowManualEntry(true);
@@ -181,7 +182,7 @@ export default function ScanScreen() {
       Alert.alert('입력 오류', '상품 이름과 카테고리를 모두 선택해주세요.');
       return;
     }
-    
+
     try {
       await supabase.from('products').upsert([{
         barcode: scannedBarcode,
@@ -214,7 +215,7 @@ export default function ScanScreen() {
     codeTypes: ['ean-13'],
     onCodeScanned: async (codes) => {
       if (isProcessing || codes.length === 0) return;
-      
+
       const barcode = codes[0].value;
       setIsProcessing(true);
       setIsLoading(true);
@@ -275,6 +276,34 @@ export default function ScanScreen() {
     }
   };
 
+  // --- 로딩 메시지 상수 ---
+  const LOADING_MESSAGES = [
+    "냉장고 속 재료를\n스캔하고 있어요! 📸",
+    "어떤 맛있는 요리가\n탄생할까요? 🍳",
+    "유통기한 확인 중...\n꼼꼼하게 체크할게요! ✅",
+    "잠시만 기다려주세요,\n맛있는 정보를 가져오는 중... 😋",
+    "오늘 뭐 먹지?\n고민 해결 중! 🤔",
+    "신선한 재료 정보를\n불러오고 있습니다 🥬",
+    "AI가 영수증을\n분석하고 있어요 🤖",
+    "거의 다 됐어요!\n조금만 더 기다려주세요 ⏳",
+    "냉장고 파먹기\n준비 완료? 🚀",
+    "스마트한 냉장고\n관리의 시작! ✨"
+  ];
+
+  const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0]);
+
+  // 로딩 메시지 5초마다 변경
+  useEffect(() => {
+    let interval: any;
+    if (isLoading) {
+      setLoadingMessage(LOADING_MESSAGES[Math.floor(Math.random() * LOADING_MESSAGES.length)]);
+      interval = setInterval(() => {
+        setLoadingMessage(LOADING_MESSAGES[Math.floor(Math.random() * LOADING_MESSAGES.length)]);
+      }, 5000);
+    }
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
   if (device == null) return <View style={styles.container}><Text style={styles.message}>카메라를 찾을 수 없습니다.</Text></View>;
   if (!hasPermission) return <View style={styles.container}><Text style={styles.message}>카메라 권한이 필요합니다.</Text><Button onPress={requestPermission} title="권한 요청" /></View>;
 
@@ -289,21 +318,22 @@ export default function ScanScreen() {
         photo={scanMode === 'receipt' ? true : undefined} // Explicitly undefined
         key={`camera-${scanMode}`}
       />
-      
+
       {isLoading && (
         <View style={styles.loadingContainer}>
           <LottieView source={require('../../assets/images/loading/Cooking - Frying Pan.json')} autoPlay loop style={styles.lottieAnimation} />
+          <Text style={styles.loadingText}>{loadingMessage}</Text>
         </View>
       )}
-      
-      <ModeToggle scanMode={scanMode} onModeChange={handleModeChange} />
-      
+
+      {!isLoading && <ModeToggle scanMode={scanMode} onModeChange={handleModeChange} />}
+
       {scanMode === 'receipt' && (
         <View style={styles.shutterButtonContainer}>
           <TouchableOpacity style={styles.shutterButton} onPress={takePhoto} />
         </View>
       )}
-      
+
       <Modal transparent={true} visible={!!scannedData || !!error} animationType="slide" onRequestClose={handleCloseModal}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -319,7 +349,7 @@ export default function ScanScreen() {
                   keyExtractor={(item) => item.id.toString()}
                   renderItem={({ item: cat }) => (
                     <TouchableOpacity
-                      style={[(selectedCategoryId || scannedData.category_id) === cat.id ? styles.selectedCategory : styles.categoryItem]}
+                      style={[styles.categoryItem, (selectedCategoryId || scannedData.category_id) === cat.id && styles.selectedCategory]}
                       onPress={() => setSelectedCategoryId(cat.id)}
                     >
                       <Text style={styles.categoryIcon}>{cat.icon}</Text>
@@ -328,7 +358,7 @@ export default function ScanScreen() {
                   )}
                 />
                 <Text style={styles.modalLabel}>유통기한</Text>
-                <TextInput style={styles.input} placeholder="YYYY-MM-DD" value={expiryDate} onChangeText={setExpiryDate} />
+                <ExpiryDateInput value={expiryDate} onChange={setExpiryDate} />
                 <View style={styles.expiryButtonsContainer}>
                   {/* Expiry buttons */}
                 </View>
@@ -371,7 +401,7 @@ export default function ScanScreen() {
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item: cat }) => (
                   <TouchableOpacity
-                    style={[manualCategoryId === cat.id ? styles.selectedCategory : styles.categoryItem]}
+                    style={[styles.categoryItem, manualCategoryId === cat.id && styles.selectedCategory]}
                     onPress={() => setManualCategoryId(cat.id)}
                   >
                     <Text style={styles.categoryIcon}>{cat.icon}</Text>
@@ -380,7 +410,7 @@ export default function ScanScreen() {
                 )}
               />
               <Text style={styles.manualEntryLabel}>유통기한</Text>
-              <TextInput style={styles.manualInput} placeholder="YYYY-MM-DD" value={expiryDate} onChangeText={setExpiryDate} />
+              <ExpiryDateInput value={expiryDate} onChange={setExpiryDate} />
               <View style={styles.manualEntryButtons}>
                 <TouchableOpacity style={[styles.manualButton, styles.manualCancelButton]} onPress={() => setShowManualEntry(false)}>
                   <Text style={styles.manualButtonText}>취소</Text>
@@ -435,6 +465,16 @@ const styles = StyleSheet.create({
   lottieAnimation: {
     width: 200,
     height: 200,
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10
   },
   manualEntrySafeArea: {
     flex: 1,

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, FlatList } from 'react-native';
+import { ExpiryDateInput } from './ExpiryDateInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase, InventoryItem } from '../lib/supabase';
 import { getAllCategories, getCategoryInfo, Category } from '../lib/categories';
@@ -100,7 +101,7 @@ export default function EditInventoryModal({
 
       if (error) throw error;
       if (updatedItem) onSave(updatedItem);
-      
+
     } catch (error: any) {
       console.error('재고 수정 오류:', error);
       Alert.alert('오류', error.message || '재고 정보를 수정하는 중 문제가 발생했습니다.');
@@ -142,7 +143,7 @@ export default function EditInventoryModal({
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>유통기한</Text>
-              <TextInput style={styles.input} value={expiryDate} onChangeText={setExpiryDate} placeholder="YYYY-MM-DD" />
+              <ExpiryDateInput value={expiryDate} onChange={setExpiryDate} />
             </View>
 
             <View style={styles.formGroup}>
@@ -155,7 +156,7 @@ export default function EditInventoryModal({
                   keyExtractor={(cat) => cat.id.toString()}
                   renderItem={({ item: cat }) => (
                     <TouchableOpacity
-                      style={[ styles.categoryItem, categoryId === cat.id && styles.selectedCategory ]}
+                      style={[styles.categoryItem, categoryId === cat.id && styles.selectedCategory]}
                       onPress={() => setCategoryId(cat.id)}
                     >
                       <Text style={styles.categoryIcon}>{cat.icon}</Text>

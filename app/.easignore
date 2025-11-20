@@ -1,30 +1,28 @@
-# === 상위 폴더 (scanner-project) 항목 제외 ===
+# .easignore
 
-# Git
-../.git/
+# 1. 의존성 및 버전 관리 (용량 주범)
+node_modules/
+.git/
+.expo/
 
-# Python 가상환경
-../.venv/
+# 2. 안드로이드 빌드 파일 (전부 무시)
+android/.gradle/
+android/build/
+android/app/build/
 
-# Python 백엔드 코드
-../backend/
+# 3. iOS 빌드 파일 (전부 무시)
+ios/.symlinks/
+ios/Pods/
+ios/build/
 
-# 문서
-../docs/
-
-
-# AI 모델, 데이터셋, 마크다운 등 기타 파일
-../*.pkl
-../*.csv
-../*.md
-
-# === 현재 폴더 (app) 항목 제외 ===
-
-# Node.js 모듈
-**/node_modules/
-
-# === 기타 ===
-.DS_Store
-*.pem
+# 4. 결과물 파일
 *.apk
+*.aab
 *.ipa
+
+# 5. 환경변수 및 키
+.env
+.env*
+*.keystore
+*.jks
+*.pem

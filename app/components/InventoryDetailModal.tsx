@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase, InventoryItem } from '../lib/supabase';
@@ -90,6 +90,12 @@ export default function InventoryDetailModal({
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
 
+  const sortedInventory = useMemo(() => {
+    return [...inventory].sort((a, b) => {
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [inventory]);
+
   const handleLongPress = (item: InventoryItem) => {
     Alert.alert(
       '재고 항목',
@@ -153,9 +159,9 @@ export default function InventoryDetailModal({
               </TouchableOpacity>
             </View>
             <View style={styles.divider} />
-            {inventory.length > 0 ? (
+            {sortedInventory.length > 0 ? (
               <FlatList
-                data={inventory}
+                data={sortedInventory}
                 renderItem={({ item }) => (
                   <InventoryListItem
                     item={item}

@@ -24,8 +24,13 @@ if supabase:
     from .utils.expiry_logic import set_supabase_client_for_categories
     set_supabase_client_for_categories(supabase)
     # recipe.py에도 Supabase 클라이언트 전달
-    from .routes.recipe import set_supabase_client as set_recipe_supabase_client
-    set_recipe_supabase_client(supabase)
+    try:
+        from .routes.recipe import set_supabase_client as set_recipe_supabase_client
+        set_recipe_supabase_client(supabase)
+    except ImportError:
+        print("Warning: Could not import set_supabase_client from routes.recipe")
+    except Exception as e:
+        print(f"Error setting supabase client for recipe: {e}")
 
 # Supabase 클라이언트를 다른 모듈에서도 사용할 수 있도록 설정
 import sys

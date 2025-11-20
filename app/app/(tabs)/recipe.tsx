@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { TouchableOpacity, Alert } from 'react-native';
 import { useRecipes, completeRecipe } from '../../hooks/useRecipe';
 import RecipeRecommendationList from '../../components/RecipeRecommendationList';
 import RecipeDetailModal from '../../components/RecipeDetailModal';
@@ -18,8 +20,18 @@ export default function RecipeScreen() {
     recipes,
     loading,
     error,
-    refetch
+    refetch,
+    generateNewRecipe
   } = useRecipes(userId);
+
+  const handleGenerateRecipe = async () => {
+    try {
+      await generateNewRecipe();
+      // 성공 알림은 선택사항, 리스트가 업데이트되므로 생략 가능하거나 짧게 표시
+    } catch (err) {
+      Alert.alert('오류', '레시피 생성 중 문제가 발생했습니다.');
+    }
+  };
 
   const handleRecipePress = (recipe: any) => {
     setSelectedRecipe(recipe);
@@ -67,6 +79,23 @@ export default function RecipeScreen() {
 
   return (
     <View style={styles.container}>
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={handleGenerateRecipe}
+              disabled={loading}
+              style={{ marginRight: 16 }}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#0064FF" />
+              ) : (
+                <Ionicons name="add-circle-outline" size={28} color="#0064FF" />
+              )}
+            </TouchableOpacity>
+          ),
+        }}
+      />
       {loading && (!recipes || recipes.length === 0) ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0064FF" />
