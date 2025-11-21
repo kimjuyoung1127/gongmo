@@ -1,6 +1,8 @@
 
 # 🥫  AI 스마트 식품 관리 서비스 : 음식물 쓰레기 제로 솔루션  (냉장고 제로)
 
+https://github.com/kimjuyoung1127/gongmo/releases/download/v1.0.0/app-release.apk
+
 > **"영수증 한 장, 바코드 한 번 스캔으로 집 안 식료품·유통기한·레시피까지 한 번에 관리하는 스마트 솔루션"**
 
 [![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactnative.dev/)
