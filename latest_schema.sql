@@ -22,21 +22,7 @@ COMMENT ON SCHEMA "public" IS 'standard public schema';
 
 
 
-CREATE OR REPLACE FUNCTION "public"."check_attendance"("dog_uuid" "uuid", "attendance_notes" "text" DEFAULT ''::"text") RETURNS "void"
-    LANGUAGE "plpgsql"
-    AS $$
-BEGIN
-  -- 출석 기록 추가
-  INSERT INTO public.attendance (dog_id, notes) 
-  VALUES (dog_uuid, attendance_notes);
-  
-  -- 남은 횟수 차감
-  PERFORM update_remaining_sessions(dog_uuid);
-END;
-$$;
 
-
-ALTER FUNCTION "public"."check_attendance"("dog_uuid" "uuid", "attendance_notes" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."handle_updated_at"() RETURNS "trigger"
@@ -52,19 +38,7 @@ $$;
 ALTER FUNCTION "public"."handle_updated_at"() OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."update_remaining_sessions"("dog_uuid" "uuid") RETURNS "void"
-    LANGUAGE "plpgsql"
-    AS $$
-BEGIN
-  UPDATE public.dogs 
-  SET remaining_sessions = remaining_sessions - 1,
-      updated_at = now()
-  WHERE id = dog_uuid AND remaining_sessions > 0;
-END;
-$$;
 
-
-ALTER FUNCTION "public"."update_remaining_sessions"("dog_uuid" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."update_updated_at_column"() RETURNS "trigger"
@@ -84,43 +58,10 @@ SET default_tablespace = '';
 SET default_table_access_method = "heap";
 
 
-CREATE TABLE IF NOT EXISTS "public"."attendance" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "dog_id" "uuid" NOT NULL,
-    "attendance_date" "date" DEFAULT CURRENT_DATE NOT NULL,
-    "notes" "text",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "service_type" character varying(10),
-    "check_in_time" timestamp without time zone,
-    "check_out_time" timestamp without time zone,
-    "check_in_date" "date",
-    "check_out_date" "date",
-    "status" character varying(20) DEFAULT 'active'::character varying,
-    "is_paused" boolean DEFAULT false,
-    "paused_at" timestamp with time zone,
-    "total_paused_duration" integer DEFAULT 0
-);
 
 
-ALTER TABLE "public"."attendance" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."care_logs" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "attendance_id" "uuid",
-    "care_date" "date",
-    "manner_belt_count" integer DEFAULT 0,
-    "notes" "text",
-    "created_at" timestamp without time zone DEFAULT "now"(),
-    "updated_at" timestamp without time zone DEFAULT "now"(),
-    "medication_schedule" "jsonb",
-    "feeding_schedule" "jsonb",
-    "medication_log" "jsonb",
-    "feeding_log" "jsonb"
-);
-
-
-ALTER TABLE "public"."care_logs" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."categories" (
@@ -151,59 +92,11 @@ ALTER SEQUENCE "public"."categories_id_seq" OWNED BY "public"."categories"."id";
 
 
 
-CREATE TABLE IF NOT EXISTS "public"."coupons" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "dog_id" "uuid" NOT NULL,
-    "coupon_type" "text" NOT NULL,
-    "status" "text" DEFAULT '사용 가능'::"text" NOT NULL,
-    "issued_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "used_at" timestamp with time zone
-);
-
-
-ALTER TABLE "public"."coupons" OWNER TO "postgres";
-
-
-COMMENT ON TABLE "public"."coupons" IS '재등록 시 발급되는 쿠폰(위생미용, 클래스) 정보를 저장합니다.';
 
 
 
-COMMENT ON COLUMN "public"."coupons"."dog_id" IS '쿠폰을 소유한 강아지의 ID';
 
 
-
-COMMENT ON COLUMN "public"."coupons"."coupon_type" IS '쿠폰 종류 (예: 위생미용, 퍼피빌 클래스)';
-
-
-
-COMMENT ON COLUMN "public"."coupons"."status" IS '쿠폰 상태 (사용 가능, 사용 완료)';
-
-
-
-CREATE TABLE IF NOT EXISTS "public"."dogs" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "name" "text" NOT NULL,
-    "breed" "text" NOT NULL,
-    "birth_date" "date",
-    "gender" "text",
-    "registration_date" "date" DEFAULT CURRENT_DATE NOT NULL,
-    "total_sessions" integer DEFAULT 0 NOT NULL,
-    "remaining_sessions" integer DEFAULT 0 NOT NULL,
-    "special_notes" "text",
-    "image_url" "text",
-    "owner_name" "text" NOT NULL,
-    "owner_phone" "text",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "type" "text" DEFAULT 'kindergarten'::"text" NOT NULL,
-    "initial_sessions" integer DEFAULT 0,
-    CONSTRAINT "dogs_gender_check" CHECK (("gender" = ANY (ARRAY['수컷'::"text", '암컷'::"text"]))),
-    CONSTRAINT "dogs_type_check" CHECK (("type" = ANY (ARRAY['kindergarten'::"text", 'daycare'::"text", 'hotel'::"text"])))
-);
-
-
-ALTER TABLE "public"."dogs" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."expiry_rules" (
@@ -235,39 +128,10 @@ ALTER SEQUENCE "public"."expiry_rules_id_seq" OWNED BY "public"."expiry_rules"."
 
 
 
-CREATE TABLE IF NOT EXISTS "public"."hotel_bookings" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "dog_id" "uuid" NOT NULL,
-    "check_in_date" "date" NOT NULL,
-    "check_out_date" "date" NOT NULL,
-    "status" "text" DEFAULT 'active'::"text" NOT NULL,
-    "notes" "text",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "valid_dates" CHECK (("check_out_date" >= "check_in_date"))
-);
 
 
-ALTER TABLE "public"."hotel_bookings" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."hotel_care_logs" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "booking_id" "uuid" NOT NULL,
-    "care_date" "date" DEFAULT CURRENT_DATE NOT NULL,
-    "manner_belt_changes" integer DEFAULT 0 NOT NULL,
-    "morning_meal_given" boolean DEFAULT false NOT NULL,
-    "afternoon_meal_given" boolean DEFAULT false NOT NULL,
-    "evening_meal_given" boolean DEFAULT false NOT NULL,
-    "morning_medicine_given" boolean DEFAULT false NOT NULL,
-    "evening_medicine_given" boolean DEFAULT false NOT NULL,
-    "notes" "text",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
-);
-
-
-ALTER TABLE "public"."hotel_care_logs" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."inventory" (
@@ -325,17 +189,7 @@ CREATE TABLE IF NOT EXISTS "public"."products" (
 ALTER TABLE "public"."products" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."re_registrations" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "dog_id" "uuid" NOT NULL,
-    "sessions_added" integer DEFAULT 0 NOT NULL,
-    "registration_date" "date" DEFAULT CURRENT_DATE NOT NULL,
-    "notes" "text",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
-);
 
-
-ALTER TABLE "public"."re_registrations" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."receipt_items" (
@@ -436,13 +290,7 @@ ALTER TABLE ONLY "public"."receipts" ALTER COLUMN "id" SET DEFAULT "nextval"('"p
 
 
 
-ALTER TABLE ONLY "public"."attendance"
-    ADD CONSTRAINT "attendance_pkey" PRIMARY KEY ("id");
 
-
-
-ALTER TABLE ONLY "public"."care_logs"
-    ADD CONSTRAINT "care_logs_pkey" PRIMARY KEY ("id");
 
 
 
@@ -456,13 +304,7 @@ ALTER TABLE ONLY "public"."categories"
 
 
 
-ALTER TABLE ONLY "public"."coupons"
-    ADD CONSTRAINT "coupons_pkey" PRIMARY KEY ("id");
 
-
-
-ALTER TABLE ONLY "public"."dogs"
-    ADD CONSTRAINT "dogs_pkey" PRIMARY KEY ("id");
 
 
 
@@ -471,18 +313,7 @@ ALTER TABLE ONLY "public"."expiry_rules"
 
 
 
-ALTER TABLE ONLY "public"."hotel_bookings"
-    ADD CONSTRAINT "hotel_bookings_pkey" PRIMARY KEY ("id");
 
-
-
-ALTER TABLE ONLY "public"."hotel_care_logs"
-    ADD CONSTRAINT "hotel_care_logs_booking_id_care_date_key" UNIQUE ("booking_id", "care_date");
-
-
-
-ALTER TABLE ONLY "public"."hotel_care_logs"
-    ADD CONSTRAINT "hotel_care_logs_pkey" PRIMARY KEY ("id");
 
 
 
@@ -501,8 +332,7 @@ ALTER TABLE ONLY "public"."products"
 
 
 
-ALTER TABLE ONLY "public"."re_registrations"
-    ADD CONSTRAINT "re_registrations_pkey" PRIMARY KEY ("id");
+
 
 
 
@@ -516,8 +346,7 @@ ALTER TABLE ONLY "public"."receipts"
 
 
 
-ALTER TABLE ONLY "public"."care_logs"
-    ADD CONSTRAINT "unique_attendance_care_date" UNIQUE ("attendance_id", "care_date");
+
 
 
 
@@ -541,11 +370,7 @@ CREATE INDEX "idx_products_barcode" ON "public"."products" USING "btree" ("barco
 
 
 
-CREATE INDEX "idx_re_registrations_date" ON "public"."re_registrations" USING "btree" ("registration_date");
 
-
-
-CREATE INDEX "idx_re_registrations_dog_id" ON "public"."re_registrations" USING "btree" ("dog_id");
 
 
 
@@ -557,36 +382,15 @@ CREATE OR REPLACE TRIGGER "handle_products_updated_at" BEFORE UPDATE ON "public"
 
 
 
-CREATE OR REPLACE TRIGGER "update_hotel_bookings_updated_at" BEFORE UPDATE ON "public"."hotel_bookings" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
 
 
 
-CREATE OR REPLACE TRIGGER "update_hotel_care_logs_updated_at" BEFORE UPDATE ON "public"."hotel_care_logs" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at_column"();
 
 
 
-ALTER TABLE ONLY "public"."attendance"
-    ADD CONSTRAINT "attendance_dog_id_fkey" FOREIGN KEY ("dog_id") REFERENCES "public"."dogs"("id") ON DELETE CASCADE;
 
 
 
-ALTER TABLE ONLY "public"."care_logs"
-    ADD CONSTRAINT "care_logs_attendance_id_fkey" FOREIGN KEY ("attendance_id") REFERENCES "public"."attendance"("id");
-
-
-
-ALTER TABLE ONLY "public"."coupons"
-    ADD CONSTRAINT "coupons_dog_id_fkey" FOREIGN KEY ("dog_id") REFERENCES "public"."dogs"("id") ON DELETE CASCADE;
-
-
-
-ALTER TABLE ONLY "public"."hotel_bookings"
-    ADD CONSTRAINT "hotel_bookings_dog_id_fkey" FOREIGN KEY ("dog_id") REFERENCES "public"."dogs"("id") ON DELETE CASCADE;
-
-
-
-ALTER TABLE ONLY "public"."hotel_care_logs"
-    ADD CONSTRAINT "hotel_care_logs_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "public"."hotel_bookings"("id") ON DELETE CASCADE;
 
 
 
@@ -610,8 +414,7 @@ ALTER TABLE ONLY "public"."products"
 
 
 
-ALTER TABLE ONLY "public"."re_registrations"
-    ADD CONSTRAINT "re_registrations_dog_id_fkey" FOREIGN KEY ("dog_id") REFERENCES "public"."dogs"("id") ON DELETE CASCADE;
+
 
 
 
@@ -647,7 +450,7 @@ CREATE POLICY "Allow ALL operations for OWN user" ON "public"."receipts" USING (
 
 
 
-CREATE POLICY "Allow admin full access" ON "public"."coupons" TO "authenticated" USING (true);
+
 
 
 
@@ -670,58 +473,7 @@ CREATE POLICY "Allow read access to all users" ON "public"."products" FOR SELECT
 ALTER TABLE "public"."expiry_rules" ENABLE ROW LEVEL SECURITY;
 
 
-ALTER TABLE "public"."hotel_bookings" ENABLE ROW LEVEL SECURITY;
 
-
-CREATE POLICY "관리자는 모든 강아지 정보 관리 가능" ON "public"."dogs" TO "authenticated" USING (true);
-
-
-
-CREATE POLICY "관리자만 재등록 기록 삭제 가능" ON "public"."re_registrations" FOR DELETE USING (true);
-
-
-
-CREATE POLICY "관리자만 재등록 기록 수정 가능" ON "public"."re_registrations" FOR UPDATE USING (true);
-
-
-
-CREATE POLICY "관리자만 재등록 기록 입력 가능" ON "public"."re_registrations" FOR INSERT WITH CHECK (true);
-
-
-
-CREATE POLICY "관리자만 출석 기록 입력 가능" ON "public"."attendance" FOR INSERT TO "authenticated" WITH CHECK (true);
-
-
-
-CREATE POLICY "관리자만 호텔 예약 관리 가능" ON "public"."hotel_bookings" USING (true);
-
-
-
-CREATE POLICY "관리자만 호텔 케어 로그 관리 가능" ON "public"."hotel_care_logs" USING (true);
-
-
-
-CREATE POLICY "보호자는 자신의 강아지만 조회 가능" ON "public"."dogs" FOR SELECT TO "anon" USING (true);
-
-
-
-CREATE POLICY "보호자는 자신의 호텔 예약만 조회 가능" ON "public"."hotel_bookings" FOR SELECT USING (true);
-
-
-
-CREATE POLICY "보호자는 자신의 호텔 케어 로그만 조회 가능" ON "public"."hotel_care_logs" FOR SELECT USING (true);
-
-
-
-CREATE POLICY "재등록 기록 조회 정책" ON "public"."re_registrations" FOR SELECT USING (true);
-
-
-
-CREATE POLICY "출석 기록 수정 정책" ON "public"."attendance" FOR UPDATE USING (true);
-
-
-
-CREATE POLICY "출석 기록 조회 정책" ON "public"."attendance" FOR SELECT TO "authenticated", "anon" USING (true);
 
 
 
@@ -732,9 +484,7 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."check_attendance"("dog_uuid" "uuid", "attendance_notes" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."check_attendance"("dog_uuid" "uuid", "attendance_notes" "text") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."check_attendance"("dog_uuid" "uuid", "attendance_notes" "text") TO "service_role";
+
 
 
 
@@ -744,9 +494,7 @@ GRANT ALL ON FUNCTION "public"."handle_updated_at"() TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."update_remaining_sessions"("dog_uuid" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."update_remaining_sessions"("dog_uuid" "uuid") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."update_remaining_sessions"("dog_uuid" "uuid") TO "service_role";
+
 
 
 
@@ -756,15 +504,7 @@ GRANT ALL ON FUNCTION "public"."update_updated_at_column"() TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."attendance" TO "anon";
-GRANT ALL ON TABLE "public"."attendance" TO "authenticated";
-GRANT ALL ON TABLE "public"."attendance" TO "service_role";
 
-
-
-GRANT ALL ON TABLE "public"."care_logs" TO "anon";
-GRANT ALL ON TABLE "public"."care_logs" TO "authenticated";
-GRANT ALL ON TABLE "public"."care_logs" TO "service_role";
 
 
 
@@ -780,15 +520,7 @@ GRANT ALL ON SEQUENCE "public"."categories_id_seq" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."coupons" TO "anon";
-GRANT ALL ON TABLE "public"."coupons" TO "authenticated";
-GRANT ALL ON TABLE "public"."coupons" TO "service_role";
 
-
-
-GRANT ALL ON TABLE "public"."dogs" TO "anon";
-GRANT ALL ON TABLE "public"."dogs" TO "authenticated";
-GRANT ALL ON TABLE "public"."dogs" TO "service_role";
 
 
 
@@ -804,15 +536,7 @@ GRANT ALL ON SEQUENCE "public"."expiry_rules_id_seq" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."hotel_bookings" TO "anon";
-GRANT ALL ON TABLE "public"."hotel_bookings" TO "authenticated";
-GRANT ALL ON TABLE "public"."hotel_bookings" TO "service_role";
 
-
-
-GRANT ALL ON TABLE "public"."hotel_care_logs" TO "anon";
-GRANT ALL ON TABLE "public"."hotel_care_logs" TO "authenticated";
-GRANT ALL ON TABLE "public"."hotel_care_logs" TO "service_role";
 
 
 
@@ -834,9 +558,7 @@ GRANT ALL ON TABLE "public"."products" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."re_registrations" TO "anon";
-GRANT ALL ON TABLE "public"."re_registrations" TO "authenticated";
-GRANT ALL ON TABLE "public"."re_registrations" TO "service_role";
+
 
 
 

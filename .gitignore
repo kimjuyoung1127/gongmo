@@ -27,4 +27,4 @@ app/.env # Frontend .env file
 .env
 .vscode/
 
-docs
+.docs
