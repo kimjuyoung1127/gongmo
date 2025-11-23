@@ -1,198 +1,190 @@
-# 🥫 AI 식료품 관리 앱 (AI Grocery Manager)
 
-**영수증과 상품 바코드를 스캔하여 식료품을 등록하고, 유통기한을 스마트하게 관리해주는 모바일 애플리케이션입니다.**
+# 🥫  AI 스마트 식품 관리 서비스 : 음식물 쓰레기 제로 솔루션  (냉장고 제로)
 
-이 프로젝트는 유료 API 의존성을 최소화하고 오픈소스 솔루션을 적극 활용하며, 사용자 피드백 기반의 AI 모델 개선 파이프라인 구축에 중점을 둡니다.
+https://github.com/kimjuyoung1127/gongmo/releases/download/v1.0.0/app-release.apk
 
----
+> **"영수증 한 장, 바코드 한 번 스캔으로 집 안 식료품·유통기한·레시피까지 한 번에 관리하는 스마트 솔루션"**
 
-## ✨ 주요 기능
-
--   **하이브리드 입력 방식**
-    -   **AI 영수증 스캔 (Clova OCR + Gemini LLM):** 영수증을 사진으로 찍으면 **Clova OCR**이 텍스트를 추출하고, **Gemini LLM**이 상품 목록만 지능적으로 분석하여 목록에 추가합니다.
-    -   **정확한 바코드 스캔 (하이브리드 DB):** 상품 바코드를 스캔하여 **식품안전나라 API**와 **Open Food Facts**를 조합하여 100% 정확한 상품 정보를 즉시 등록합니다.
--   **자동 유통기한 계산:** AI가 품목의 카테고리를 인식하고, 내장된 규칙에 따라 최적의 유통기한을 자동으로 계산해줍니다.
--   **동적 카테고리 매핑:** OCR로 식별된 상품에 대해 데이터베이스에 있는 카테고리 정보를 실시간으로 조회하여 정확한 카테고리 분류를 제공합니다.
--   **레시피 추천 서비스:** 사용자의 현재 재고에 기반한 **AI 레시피 추천** 기능으로, 보유한 재료 중 최소 1개 이상 일치하는 레시피를 스마트하게 추천해줍니다.
--   **실시간 재고 관리:** 등록된 식료품 목록을 실시간으로 확인하고, 유통기한이 임박한 순서(D-Day)로 정렬하여 보여줍니다.
--   **클라우드 동기화:** 모든 데이터는 클라우드(Supabase)에 저장되어 여러 기기에서 동기화됩니다.
--   **AI 모델 지속 개선 (MLOps):** `MLflow`, `Label Studio` 등을 활용하여 사용자 피드백 기반의 AI 모델 재학습 및 개선 파이프라인을 구축합니다.
+[![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactnative.dev/)
+[![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-181818?style=for-the-badge&logo=supabase&logoColor=3ECF8E)](https://supabase.com/)
+[![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 
 ---
 
-## 🏛️ 아키텍처
+## 📱 App Preview
 
-이 프로젝트는 다음과 같은 모던 앱 아키텍처로 구성됩니다.
-
-```
-[📱 프론트엔드: 스마트폰 앱]  <-- (REST API) -->  [⚙️ 백엔드: Python/Flask]  <-- (SDK) -->  [☁️ DB: Supabase]
- (React Native, Vision Camera)      (Clova OCR, Gemini LLM, 바코드 API)          (PostgreSQL + Realtime)
-```
+| 영수증/바코드 스캔 | AI 레시피 추천 |
+| :---: | :---: |
+| <img src="https://github.com/user-attachments/assets/ee47d7d7-6f64-4e41-b115-1b770b312421" width="300" /> | <img src="https://github.com/user-attachments/assets/6473058c-3b3c-4887-876d-d3499df49e62" width="300" /> |
+| 정확한 상품 정보 인식 + 유통기한 자동 계산 | 현재 재고 기반 AI 레시피 추천 |
 
 ---
 
-## 📁 프로젝트 구조
+## 💡 Problem & Solution
 
-```
-scanner-project/
-├── app/                              # ✅ 프론트엔드 (Expo React Native)
-│   ├── app/(tabs)/                   # 메인 탭 화면
-│   │   ├── scan.tsx                 # ⚠️ 리팩토링 중 (구조: 아래 components/scan/ 참고)
-│   │   ├── index.tsx                # 재고 목록 화면
-│   │   ├── recipe.tsx               # 레시피 추천 화면
-│   │   └── settings.tsx             # 설정 화면
-│   ├── components/
-│   │   ├── scan/                    # 🆕 스캔 컴포넌트 모듈 (2025-11-15)
-│   │   │   ├── ScanUtils.ts         # 유틸리티 및 타입
-│   │   │   ├── ModeToggle.tsx       # 바코드/영수증 전환
-│   │   │   ├── PhotoConfirmModal.tsx # 사진 확인 화면
-│   │   │   ├── BarcodeScanner.tsx   # 바코드 스캔 로직 (계획)
-│   │   │   ├── ReceiptCamera.tsx    # 영수증 카메라 & OCR (계획)
-│   │   │   ├── BarcodeModal.tsx     # 바코드 결과 모달 (계획)
-│   │   │   ├── ManualEntryModal.tsx # 직접 입력 화면 (계획)
-│   │   │   └── README.md            # 스캔 모듈 기술 문서
-│   │   ├── RecipeCard.tsx           # 레시피 카드 UI 컴포넌트
-│   │   ├── RecipeDetailModal.tsx    # 레시피 상세 모달 UI 컴포넌트
-│   │   ├── RecipeRecommendationList.tsx # 레시피 추천 리스트 UI 컴포넌트
-│   │   └── ui/                      # 공용 UI 컴포넌트
-│   ├── hooks/
-│   │   └── useRecipe.ts             # 레시피 관련 로직 훅
-│   ├── lib/
-│   │   └── api/
-│   │       └── recipe.ts            # 레시피 API 서비스 레이어
-│   └── styles/                      # 전역 스타일
-│
-├── backend/                          # ✅ AI 모델, 비즈니스 로직, API 서버
-│   ├── api/
-│   │   ├── app.py                   # 🆕 Flask 메인 앱 (리팩토링 완료, 40라인)
-│   │   ├── ocr_service.py           # 🆕 Clova OCR + Gemini LLM 영수증 분석 로직
-│   │   ├── utils/                   # 🆕 유틸리티 모듈 (이전 위치에서 api/로 이동)
-│   │   │   ├── barcode_lookup.py    # DB 캐싱 + 외부 API 연동
-│   │   │   ├── expiry_logic.py      # 영수증 OCR 처리 로직
-│   │   │   ├── food_api.py          # 🆕 외부 레시피 API 연동 (식품안전나라, TheMealDB)
-│   │   │   └── __init__.py          # 패키지 구조
-│   │   └── routes/                  # 🆕 블루프린트 기반 라우트 구조
-│   │       ├── ocr.py               # /upload_receipt* 엔드포인트
-│   │       ├── barcode.py           # /lookup_barcode 엔드포인트
-│   │       ├── inventory.py         # /inventory/* 및 /health 엔드포인트
-│   │       ├── recipe.py            # 🆕 /recipe/* 엔드포인트
-│   │       └── __init__.py          # 패키지 구조
-│   ├── models/                      # 훈련된 ML 모델들 (Legacy)
-│   │   ├── item_classifier.pkl     # (Legacy) 로컬 품목 분류 모델
-│   │   ├── model_classes.json      # (Legacy) 카테고리 매핑
-│   │   └── vectorizer.pkl          # (Legacy) 텍스트 벡터화
-│   ├── services/                    # 🆕 백엔드 서비스 레이어
-│   │   └── recipe_service.py        # 레시피 관련 비즈니스 로직
-│   └── data/
-│       └── categories_proper.csv   # ✅ 카테고리 마스터 데이터
-│
-├── docs/
-│   └── 스키마/
-│       └── schema.md                # 🔄 업데이트됨: recipes 테이블 추가
-│
-├── docs/                            # ✅ 프로젝트 계획 및 기술 문서
-│   ├── 프론트엔드/
-│   │   ├── frontend_plan.md         # 프론트엔드 개발 계획
-│   │   └── receipt_ocr_plan.md      # 영수증 OCR 세부 계획 (체크리스트)
-│   ├── 스키마/
-│   │   └── schema.md                # Supabase DB 스키마 정의
-│   ├── log.md                       # 🔄 로그 및 개선사항 (2025-11-15 업데이트)
-│   └── data.md                      # 데이터 모델 문서
-│
-└── backend/                         # ✅ (중복) 백엔드 코드 (최상단과 동일)
-```
+### 🛑 Problem
+* **기억의 한계:** 냉장고/팬트리 깊숙한 곳의 재고를 잊어버려 중복 구매 발생
+  
+* **폐기물의 증가:** 유통기한 관리가 안 되어 버려지는 음식물 쓰레기 증가
+  
+* **관리의 단절:** 장보기(영수증)와 재고 관리(냉장고)가 연결되지 않는 불편함
+
+### ✅ Solution
+* **자동화된 등록:** 영수증 촬영 및 바코드 스캔만으로 식료품 정보 자동 등록
+
+* **스마트 관리:** 카테고리별 유통기한 자동 계산 및 D-Day 알림 제공
+  
+* **가치 연결:** 현재 재고를 활용한 AI 맞춤 레시피 추천으로 '소비'까지 연결
 
 ---
 
-## 🚀 시작하기
+## ✨ Key Features
 
-### 🚀 테스트 확인된 기능 (2025-11-15)
+* 📸 **AI 영수증 스캔 (Hybrid OCR)**
+    * Clova OCR로 텍스트 추출 후 Gemini LLM이 상품명만 정교하게 필터링
+      
+* 📦 **정밀 바코드 스캔** 
+    * 식품안전나라 API + Open Food Facts 연동으로 정확한 상품 정보 매칭
+      
+* ⏰ **자동 유통기한 관리**
+    * 품목별 최적 유통기한 자동 설정 및 임박 알림 제공
+      
+* 📊 **실시간 재고 대시보드**
+    * D-Day 기준 정렬, 소비기한 임박 품목 시각적 강조
+      
+* 👩‍🍳 **AI 레시피 추천**
+    * 보유 재료 기반 레시피 추천 및 요리 후 재고 자동 차감 연동
 
-#### ✅ 완료된 핵심 기능
-1. **바코드 스캔 시스템** 
-   - DB 캐싱 구조 (products → inventory 2단계 저장)
-   - 외부 API 호출 최적화 (DB HIT 시 0.1초 응답)
-   - 404 오류 시 직접 입력 기능
-   
-2. **영수증 OCR 기반**
-   - react-native-vision-camera로 사진 촬영
-   - Clova OCR + Gemini LLM 기반 품목 분석
-   - /upload_receipt API 완료
-
-#### 🔧 진행 중인 모듈화
-- **scan.tsx** (800줄) → **components/scan/** 모듈로 분리 중
-- 영수증 결과 검토 화면 및 카테고리 수정 UI
-- MLOps 피드백 수집 기능
-
-### 📁 각 파트별 상세 정보
-
-1.  **프론트엔드 실행 및 모듈**: 
-    - 실행: `app/` 참고
-    - 스캔 모듈: `app/components/scan/README.md` 참고
-2.  **백엔드 API 서버**:
-    - 실행: `cd backend && source .venv/Scripts/activate && python -m api.app`
-    - 구조: `backend/api/routes/` 블루프린트 기반
-    - API 문서: 다음 엔드포인트 제공
-      - `GET /health` - 상태 확인
-      - `POST /upload_receipt*` - 영수증 OCR 및 동적 카테고리 매핑
-      - `POST /lookup_barcode` - 바코드 조회
-      - `POST /inventory/batch_add` - 재고 일괄 추가
-      - `GET /recipe/search` - 재료 기반 레시피 검색
-      - `GET /recipe/detail/<menu_name>` - 레시피 상세 정보
-      - `POST /recipe/complete` - 요리 완료 및 재고 차감
-3.  **프론트엔드 계획**: `docs/프론트엔드/frontend_plan.md` 참고
-4.  **영수증 OCR 계획**: `docs/프론트엔드/receipt_ocr_plan.md` 참고
-5.  **데이터베이스 스키마**: `docs/스키마/schema.md` 참고
-6.  **MLOps 전략 및 개선사항**: `docs/log.md` 참고
-
-### 🏗️ 백엔드 리팩토링 완료 (2025-11-16)
-
-#### ✅ 완료된 리팩토링 작업
-- **모듈화 구조 도입**: Flask Blueprint 기반 아키텍처
-- **서비스 레이어 분리**: Clova OCR 비즈니스 로직 독립화
-- **코드 크기 감축**: `app.py` 33,373라인 → 40라인 (99.9% 감소)
-- **유지보수성 향상**: 기능별 명확한 책임 분리
-
-#### 📂 새로운 구조
-```
-backend/api/
-├── app.py              # Flask 앱 초기화 및 블루프린트 등록
-├── ocr_service.py      # Clova OCR 관련 10개 함수
-└── routes/             # 블루프린트 기반 라우트
-    ├── ocr.py          # 영수증 관련 API
-    ├── barcode.py      # 바코드 조회 API  
-    └── inventory.py    # 재고 관리 API
-```
-
-#### 🎯 리팩토링 효과
-- **확장성**: 새 기능 추가 시 블루프린트만 생성
-- **테스트 용이성**: 각 모듈 독립적 테스트 가능
-- **개발 효율**: 기능별 협업 용이
-- **가독성**: 역할별 명확한 파일 분리
-
-### 🚀 서버 콜드 스타트 문제 해결 (2025-11-17)
-
-#### 문제: Render 무료 플랜의 '콜드 스타트' 현상
-- 서버가 15분 동안 요청이 없으면 '수면' 상태로 진입
-- 사용자가 영수증을 업로드할 때 서버가 깨어나는 데 50초~1분 소요
-- 결과적으로 사용자는 504 게이트웨이 타임아웃 에러를 경험
-
-#### 해결 전략: 서버 프리워밍 (Server Pre-warming)
-1. **헬스 체크 엔드포인트 추가**: `/health` API (가벼운 응답만 처리)
-2. **앱 시작 시 프리워밍**: `app/_layout.tsx`에서 앱 실행 시 `/health` 호출
-3. **업로드 타임아웃 확장**: OCR 업로드 요청에 2분 타임아웃 설정
-
-#### 파일 변경:
-- `backend/api/routes/health.py`: 헬스 체크 엔드포인트
-- `backend/api/app.py`: 헬스 블루프린트 등록
-- `app/app/_layout.tsx`: 앱 시작 시 서버 프리워밍
-- `app/app/(tabs)/scan.tsx`: 업로드 타임아웃 확장
+* ☁️ **클라우드 동기화**
+    * Supabase 기반 실시간 데이터 동기화로 가족 간 냉장고 공유 가능
+      
+* 🤖 **MLOps 파이프라인**
+    * 사용자 피드백(수정 데이터)을 기반으로 한 AI 모델 지속적 개선
 
 ---
 
-### 🔍 현재 상태 요약
-- **🟢 완료**: 백엔드 리팩토링, 모듈화 구조 도입, API 테스트 통과, 서버 콜드 스타트 문제 해결
-- **🟡 진행 중**: 프론트엔드 리팩토링, 영수증 OCR UI 구현
-- **🔵 계획**: MLOps 피드백 시스템, 오프라인 모드
+## 🏛 Architecture
+
+### System Overview
+![System Architecture](https://github.com/user-attachments/assets/1516302a-0058-4697-b507-9712f4ae21ea)
+
+### Detailed Diagrams
+<details>
+<summary>📂 1. 파일/폴더 구조도 (Click to Expand)</summary>
+
+![File Structure](https://github.com/user-attachments/assets/56cab7bf-3196-4c74-ba08-8c7bef87eefc)
+</details>
+
+<details>
+<summary>🔄 2. 화면 이동 흐름도 (Click to Expand)</summary>
+
+![User Flow](https://github.com/user-attachments/assets/30e4a642-228b-4f7e-be78-02adde308d22)
+</details>
+
+<details>
+<summary>🗄️ 3. 데이터베이스 관계도 (ERD) (Click to Expand)</summary>
+
+![ERD](https://github.com/user-attachments/assets/8f4c4798-04a8-4f28-91a7-d361d7ffbe94)
+</details>
+
+<details>
+<summary>🍳 4. 레시피 생성 프로세스 (Click to Expand)</summary>
+
+![Recipe Process](https://github.com/user-attachments/assets/c5199563-4423-4cf8-9bb3-0db7990c6728)
+</details>
 
 ---
+
+## 🧰 Tech Stack
+
+| Category | Technologies |
+| :--- | :--- |
+| **Frontend** | Expo, React Native, Vision Camera, Recoil |
+| **Backend** | Python 3.x, Flask (Blueprint), Pydantic |
+| **Database** | Supabase (PostgreSQL, Realtime) |
+| **AI / ML** | Clova OCR, Gemini LLM, MLflow, Label Studio |
+| **Infra** | Render (Server Hosting) |
+
+---
+
+## 🚀 Getting Started
+
+### 1. Prerequisites
+* Node.js (>= 18)
+* Python 3.10+
+* Supabase Project
+* API Keys (Clova OCR, Gemini, etc.)
+
+### 2. Environment Setup
+Create `.env` file in `backend/` directory:
+```bash
+CLOVA_OCR_SECRET_KEY=your_key
+GEMINI_API_KEY=your_key
+SUPABASE_URL=your_url
+SUPABASE_ANON_KEY=your_key
+FOOD_SAFETY_API_KEY=your_key
+````
+
+### 3\. Backend Setup
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python -m api.app
+```
+
+### 4\. Frontend Setup
+
+```bash
+cd app
+yarn install
+yarn start
+```
+
+-----
+
+## 🔄 Usage Flow
+
+1.  **📸 Scan:** 영수증 촬영 또는 바코드 스캔
+2.  **🤖 Analyze:** Clova OCR(텍스트) + Gemini LLM(구조화) 분석
+3.  **📥 Register:** 자동 입력된 정보 확인 및 저장
+4.  **⏰ Manage:** D-Day 알림 및 유통기한 관리
+5.  **🍳 Cook:** 재고 기반 레시피 추천 및 요리
+
+-----
+
+## 📌 Roadmap
+
+  - [x] **Phase 1: Core Features**
+      - [x] 백엔드 리팩토링 (Flask Blueprint)
+      - [x] 바코드 스캔 & DB 캐싱
+      - [x] 서버 콜드 스타트 해결 (Pre-warming)
+            
+  - [ ] **Phase 2: Experience**
+      - [ ] 프론트엔드 스캔 화면 모듈화
+      - [ ] 영수증 검토 UI 개선
+      - [ ] 레시피 추천 알고리즘 고도화
+            
+  - [ ] **Phase 3: Intelligence**
+      - [ ] MLOps 피드백 루프 구축
+      - [ ] 오프라인 모드 지원
+      - [ ] 가계부 연동 및 소비 분석
+
+-----
+
+## 👩‍💻 Team & Contact
+
+| Role | Name | Contact | GitHub |
+| :--- | :--- | :--- | :--- |
+| **Frontend** | 전혜성 | jkmsss0270@gmail.com | [[@username](https://github.com/]) |
+| **Backend** | 김주영 | gmdqn2tp@example.com |(https://github.com/kimjuyoung1127)|
+| **AI/ML** | 김택광 | rhkddl1128@gmail.com | [@username](https://github.com/) |
+
+-----
+
+## 📄 License
+
+
